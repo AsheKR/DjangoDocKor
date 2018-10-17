@@ -257,3 +257,260 @@ from django.db import models
 class Mymodel(models.Model):
 	even_field = models.IntegerField(validators=[validate_even])
 ```
+
+## Field types
+
+### AutoField
+
+#### class AutoField(\*\*options)
+
+자동으로 증가하는 IntegerField이다. 보통 직접 사용하지 않고 별도로 지정하지 않으면 **Primary_key** 필드가 자동으로 모델에 추가된다.
+
+### BigAutoField
+
+#### class BigAutoField(\*\*options)
+
+64bit Integer필드의 크기를 가지고, AutoField와 매우 유사하다.
+1 ~ 9223372036854775807 까지 가능
+
+### BigIntegerField
+
+#### class BigIntegerField(\*\*options)
+64bit Integer 필드를 가지고 이 필드의 기본 양식 위젯은 TextInput이다.
+-9223372036854775808 ~ 9223372036854775807 까지 가능
+
+### BinaryField
+
+#### class BinaryField(\*\*options)
+
+원시 이진 데이터를 저장하는 필드.
+**Byte**, **ByteArray** 또는 **Memoryview**를 할당할 수 있다.
+
+기본적으로 **BinaryField**는 **editable**을 False로 설정한다.
+이 경우 ModelForm에는 포함될 수 없다.
+
+**BinaryField**는 추가적인 옵션을 가진다.
+
+**BinrayField.max_length**
+필드의 최대 길이를 지정할 수 있다. **MaxLengthValidator**를 사용하여 Django의 유효성 검사에서 최대 길이가 적용된다.
+
+### BooleanField
+
+#### class BooleanField(\*\*options)
+
+True 혹은 False 값을 가지는 필드
+
+이 필드의 기본 양식 위젯은 **CheckboxInput** 이거나 **null=True** 인경우 **NullBooleanSelect** 이다.
+
+**Field.default** 가 정의되어 있지 않으면 **BooleanField**의 기본값은 **None** 이다.
+
+### CharField
+
+#### class CharField(max_length=None, **options)
+
+문자열 필드, 작은것부터 큰 사이즈의 문자열을 포함한다.
+큰 양의 문자열일 경우 **TextField**를 사용한다.
+기본 위젯은 **TextInput**이다.
+
+**CharField** 에는 필수 인자가 하나 있다.
+
+**CharField.max_length**
+필드의 최대 길이를 정한다. max_length는 데이터베이스 레벨과 Django가 MaxLengthValidator를 사용하여 유효성을 검사할 때 적용된다.
+
+### DateField
+
+#### class DateField(auto_now=False, auto_now_add=False, \*\*options)
+
+date는 Python의 **datetime.date** 인스턴스를 사용하여 나타낸다. 몇가지 추가 옵션 인수가 존재한다.
+
+**DateField.auto_now**
+
+개체가 저장될때마다 필드의 값을 지금으로 자동 설정한다.
+"마지막으로 수정 된" 시간을 저장할 때 유용한다.
+재정의 할 수 있는 기본값이 아니다.
+
+이 필드는 **Model.save()** 를 호출할 때 자동으로 업데이트된다. **Query.update()** 와 같은 다른 방법으로 다른 필드를 업데이트 할 때 업데이트 되지 않지만 이와 같은 업데이트에서 필드의 사용자 지정 값을 지정할 수는 있다.
+
+**DateField.auto_now_add**
+
+객체가 처음 생성될 때 필드를 자동으로 현재날짜로 사용된다. 재정의 할 수 있는 기본값이 아니다. 따라서 이 필드의 기본 값을 설정하더라도 무시된다. 이 내용은 **auto_now_add=False** 를 사용한 후 다음과 같이 정의할 수 있다.
+
+- default=date.today - *from datetime.date.today()*
+- default=timezone.now - *from django.utils.timezone.now()*
+
+이 필드의 기본 양식 위젯은 **TextInput** 이다. 관리자는 Javascript 캘린더와, 오늘을 추가할 수 있는 바로가기 위젯을 생성해준다. **invalid_date** 오류 메세지 키가 추가로 포함된다.
+
+
+> 위의 **auto_now, auto_now_add** 는 상호 배타적이므로, 두가지 옵션을 함께 사용하면 오류가 발생한다.
+> 위의 두 옵션 중 하나를 사용하게 되면 editable=False, blank=True가 설정된다.
+
+### DateTimeField
+
+#### class DateTimeField(auto_now=False, auto_now_add=False, \*\*options)
+
+Python에서 **datetime.datetime** 인스턴스로 표현되는 날짜아 시간. **DateTime** 과 동일한 추가 인수를 사용한다.
+
+### DecimalField
+
+#### class DecimalField(max_digits=None, decimal_places=None, \*\*options)
+
+고정 소수점 십진수로 파이썬에서 **Decimal** 인스턴스로 나타낸다. **DecimalValidator** 를 사용하여 입력의 유효성을 검사한다.
+
+두가지 필수 인자를 가진다.
+
+**DecimalField.max_digits**
+숫자에 허용되는 최대 자릿수이다. 이 수는 **decimal_places**보다 크거나 같아야한다.
+
+**DecimalField.decimal_places**
+숫자와 함께 저장할 소수 자릿수이다.
+
+예를 들어, 최대 999까지 소수점 이하 2 자리로 저장하려면 다음을 사용한다.
+```python
+models.DecimalField(..., max_digits=5, decimal_places=2)
+```
+
+이 필드의 기본 양식 위젯은 **localize** 가 False 일 때 **NumberInput** 이고 그렇지 않으면 **TextInput** 이다.
+
+### DurationField
+
+#### class DurationField(\*\*options)
+
+기간을 저장하는 필드 - Python의 **timedelta** 를 모델로함.
+PostgreSQL을 사용할 때 사용되는 데이터 타입은 **Interval** 이고 Oracle 에서 데이터 타입은 INTERVAL DAY(9) TO SECOND(6)이다. 그렇지 않으면 마이크로초의 **BIGINT** 가 사용된다.
+
+> DurationField를 사용한 산술은 대부분의 경우 작동한다. 그러나 PostgreSQL 이외의 모든 데이터베이스에서 Duration field의 값을 DateTimeField의 산술 인스턴스와 비교하는 것은 작동하지 않는다.
+
+### EmailField
+
+#### class EmailField(max_length=254, \*\*options)
+
+**EmailValidator** 를 사용하여 이메일 유효성을 검사하는 **CharField** 이다.
+
+### FileField
+
+#### class FileField(upload_to=None, max_length=100, \*\*options)
+
+파일 업로드 필드이다.
+
+> primary_key 인자는 지원되지 않고, 사용할 경우 오류를 발생한다.
+
+두가지 선택적 옵션이 존재한다.
+
+**FileField.upload_to**
+
+이 속성은 업로드 디렉토리와 파일 이름을 설정하는 방법을 제공하며, 두 가지 방법으로 설정할 수 있다. 두 경우 모두 값은 **Storage.save()** 메서드에 전달된다.
+
+**strftime()** 형식을 사용하는 문자열을 명시하면 날짜/시간 형식의 문자열로 대체된다.
+
+```python
+class MyModel(models.Model):
+	#파일은 MEDIA_ROOT/uploads 에 업로드 될 것이다.
+	upload = models.FileField(upload_to='uploads/')
+	# 파일이 /MEDIA_ROOT/uploads/년/월/일 형식으로 업로드 될 것이다.
+	upload= models.FileField(upload_to='uploads/%Y/%m/%d/')
+```
+
+기본 **FileSystemStorage** 를 사용하는 경우 문자열 값이 **MEDIA_ROOT** 경로에 추가되어 업로드 된 파일이 저장될 로컬 파일 시스템의 위치가 형성된다.
+
+**upload_to** 는 함수와 같은 호출 가능 함수를 사용할 수 있다. 이것은 파일 이름을 포함하여 업로드 경로를 얻기 위해 사용된다. 이 호출 가능 객체는 두개의 인수를 받아 들여 저장소 시스템에 전달되는 유닉스 스타일 경로(슬래시 포함)을 반환해야한다. 두 가지 인수는 다음과 같다.
+
+Argument | Description
+---------|------------
+instance|FileField가 정의 된 모델의 인스턴스. 보다 구체적으로 현재 파일이 첨부되는 특정 인스턴스이다. 대부분의 경우 이 개체는 아직 데이터베이스에 저장되지 않았으므로 **AutoField** 를 사용하는 경우 기본 키 필드 값이 아직 없을 수 도 있다.
+filename|원래 파일에 주어진 이름. 최종 목적지 경로를 결정될 때 고려할 수 있고 고려하지 않을 수 있다.
+
+```python
+def user_driectory_path(instance, filename):
+	# 파일이 MEDIA_ROOT/user_<id>/<filename> 에 업로드 될것이다.
+	return 'user_{0}/{1}'.format(instance.user.id, filename)
+
+class MyModel(models.Model):
+	upload = models.FileField(upload_to=useuser_driectory_path)
+```
+
+**FileField.storage**
+파일의 저장 및 검색을 처리하는 저장 storage 객체이다.
+
+이 필드의 기본 양식 위젯은 **ClearableFileInput** 이다.
+
+모델에서 **FileField** 또는 **ImageField** 를 사용하면 몇 단계가 수행된다.
+
+1. 설정 파일에서 Django가 업로드 된 파일을 저장할 디렉토리의 전체 경로로 **MEDIA_ROOT** 를  정의해야한다. 성능향상을 위해 이러한 파일은 데이터베이스에 저장되지 않는다. **MEDIA_URL** 을 해당 디렉터리의 기본 공개 URL로 정의한다. 이 디렉터리가 웹 서버의 사용자 계정이 사용가능한지 확인한다.
+2. **FileField** 또는 **ImageField** 를 추가하고 **upload_to** 옵션을 정의하여 업로드 된 파일에 사용할 **MEDIA_ROOT** 의 하위 디렉터리를 정의한다.
+3. 데이터베이스에 저장되는 것은 모두 파일의 **MEDIA_ROOT** 로부터 상대경로이다. Django에서 제공하는 url 속성을 사용할 수도있다. 예를 들어 **ImageField** 의 이름이 **mug_shot** 인 경우 **{{ object.mug_shot.url }}** 로 템플릿에서 이미지의 절대 경로를 가져올 수 있다.
+
+업로드 된 파일의 디스크상 파일이름이나 파일의 크기를 가져오려면 각각 **name** 및 **size** 속성을 사용할 수 있다.
+
+업로드된 파일의 상대 URL 경로를 얻고싶으 url 속성을 사용하여 얻을 수 있다. 내부적으로 **Storage** 클래스의 **url()** 메서드를 호출한다.
+
+업로드 된 파일을 다룰 때마다 업로드 할 파일과 파일의 유형에 주의를 기울여 보안 허점을 피해야한다. 업로드 된 모든 파일의 유효성을 검사하여 파일이 관리자가 허용한 것임을 확신하게 해야한다. 예를들어 누군가가 검증없이 파일을 웹 서버의 문서 루트에 있는 디렉터리에 업로드하도록 허용한다면 누군가가 CGI 또는 PHP 스크립트를 업로드하고 사이트의 URL에 방문하여 해당 스크립트를 실행할 수 있다.
+
+또한 업로드 된 HTML 파일은 브라우저가 실행할 수 있기 때문에 XSS 또는 CSRF 공격과 동일한 보안위협이 될 수 있다.
+
+**FileField** 인스턴스는 기본 최대 길이가 100자인 varchar 열로 데이터베이스에 만들어진다. 다른 필드와 마찬가지로 **max_length** 인수를 사용하여 최대 길이를 변경할 수 있다.
+
+### FileField 와 FieldFile
+
+#### class FieldFile
+
+모델에서 **FileField** 에 접근하면 **FieldFile** 인스턴스가 기본 파일에 액세스하기 위한 프록시로 제공된다.
+
+**FieldFile** 의 API는 **FILE** API를 미러링한다. 하나 주요 차이점이 있는데, 클래스에 의해 래핑된 객체는 반드시 파이썬 내장 파일 객체를 감싸는 래퍼일 필요는 없다. 대신 **Storage.open()** 메서드의 결과를 둘러싼 래퍼이다. 이 메서드는 **File** 객체일 수 있고 **FILE** API의 사용자 정의 저장소 구현 일 수도 있다.
+
+**read()** 및 **write()** 와 같이 **FILE** 에서 상속된 API 외에도 **FieldFile** 에는 기본 파일과 상호 작용하는 데 사용할 수 있는 몇가지 메서드가 포함되어 있다.
+
+>  이 클래스의 두 가지 메소드 인 save ()와 delete ()는 기본적으로 연관된 FieldFile의 모델 객체를 데이터베이스에 저장한다.
+
+**FieldFile.name**
+
+**FileField**에 연결된 **Storage** 로부터의 상대경로를 포함하는 파일 이름
+
+**FieldFile.size**
+
+**Storage.size()** 함수의 결과값
+
+**Fieldfile.url**
+
+**Storage** 클래스의 **url()** 함수를 호출하여 파일의 상대 URL에 접근하는 읽기 전용 프로퍼티
+
+**FieldFile.open(mode='rb')**
+
+지정된 모드에서 인스턴스와 관련된 파일을 열거나 다시 연다. 표준 파이썬 **open()** 메서드와는 달리, file descriptor 를 리턴하지 않는다.
+
+기본 파일이 액세스할 때 암시적으로 열리므로 기본 파일에 대한 포인터를 재설정하거나 모드를 변경하는 경우를 제외하고 이 메서드를 호출할 필요 없다.
+
+**FieldFile.close()
+
+표준 파이썬 **file.close()** 메소드와 유사하게 동작하고 인스턴스와 관련된 파일을 닫는다.
+
+**FieldFile.save(name, content, save=True)**
+
+파일 이름과, 파일 내용을 가져와 필드의 Storage 클래스에 전달한 다음 저장된 파일을 모델 필드와 연결한다. 모델의 **FileField** 인스턴스에 파일을 수동으로 연결하려면 **save()** 메서드를 사용하여 해당 파일의 데이터를 유지한다.
+
+두가지 필수 인수를 취한다.
+**name** 은 파일의 이름, **content** 는 파일 내용을 포함하는 객체이다.
+save 인수는 선택적이며 필드와 연관된 파일이 변경된 후 모델 인스턴스가 저장되는지 여부를 제어한다. 기본 값은 **True**
+
+**content** 인수는 Python의 내장 파일 객체가 아닌 **django.core.files.File** 의 인스턴스야 한다. 다음과 같이 기존의 Python 객체에서 **FILE** 을 생성할 수 있다.
+
+```Python
+from django.core.files import File
+# 파이썬의 내장함수로 파일을 가져옴
+f = open('/path/to/hello.world')
+myfile = File(f)
+```
+
+혹은 다음과 같이 파이썬 문자열로 만들 수 있다.
+
+```Python
+from django.core.files.base import ContentFile
+myfile = ContentFile("Hello world")
+```
+
+**FieldFile.delete(save=True)**
+
+이 인스턴스와 관련된 파일을 삭제하고 필드의 모든 특성을 지운다. 이 메서드는 호출될 때 파일이 열려있으면 닫는다.
+
+**save** 인수는 선택적이며, 필드와 연관된 파일이 삭제된 후 모델 인스턴스가 저장되는지 여부를 제어한다. 기본 값은 **True**
+
+모델을 삭제하면 관련 파일이 삭제되지 않는다. 해당 인스턴스와 관련된 파일을 정리해야하는 경우 직접 처리해야한다.

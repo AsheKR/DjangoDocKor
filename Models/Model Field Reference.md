@@ -509,8 +509,687 @@ myfile = ContentFile("Hello world")
 
 **FieldFile.delete(save=True)**
 
-이 인스턴스와 관련된 파일을 삭제하고 필드의 모든 특성을 지운다. 이 메서드는 호출될 때 파일이 열려있으면 닫는다.
+이 인스턴스와 관련된 파일을 삭제하고 필드의 모든 특성을 지운다. 이 메서드는 호출될 때 파일이 열리면 닫는다.
 
-**save** 인수는 선택적이며, 필드와 연관된 파일이 삭제된 후 모델 인스턴스가 저장되는지 여부를 제어한다. 기본 값은 **True**
+**save** 인수는 선택적이며, 필드와 연관된 파일이 삭제된 후 모델 인스턴스가 저장되는지 여부를 제어한다.
+기본 값은 **True**
 
 모델을 삭제하면 관련 파일이 삭제되지 않는다. 해당 인스턴스와 관련된 파일을 정리해야하는 경우 직접 처리해야한다.
+
+### FilePathField
+
+#### class FilePathField(path=None, match=None, recursive=False, max_length=100, \*\*options)
+
+파일시스템의 특정 디렉터리 내 파일 이름으로 제한된 CharField
+세가지 특수한 인자를 가지며, 첫 인자는 필수이다.
+
+**FilePathField.path**
+
+필수.
+`FilePathField`가 선택해야하는 디렉터리에 대한 파일 시스템의 절대 경로. 예 ) `"home/images"`
+
+**FilePathField.match**
+
+선택사항
+문자로된 정규표현식,`FilePathField`가 파일이름을 필터할 때 사용한다. 정규표현식은 전체 경로가 아닌, 파일 이름에 적용된다.
+
+**FilePathField.recursive**
+
+선택사항
+Boolean 속성, 기본값은 `False`
+`path` 의 하위 디렉터리가 모두 포함될지 여부를 지정한다.
+
+**FilePathField.allow_files**
+
+선택사항
+Boolean 속성, 기본값은 `True`
+지정된 위치의 파일을 포함할지 여부를 지정한다. 이 속성이나 `allow_folders` 둘중 하나는 `True`여야한다.
+
+**FilePathField.allow_folders**
+
+선택사항
+Boolean 속성, 기본값은 `False`
+지정된 위치의 폴더를 포함할지 여부를 지정한다. 이 속성이나 `allow_files` 둘중 하나는 `True`이여야한다.
+
+물론 이러한 함수들을 함께 사용할 수 있다.
+
+하나의 잠재적 문제는 전체 경로가 아닌 기본 파일 이름에 `match`가 적용된다는 것이다.
+
+```Python
+FilePathField(path='/home/images', match='foo.*', recursive=True)
+```
+
+`match`가 기본 파일 이름에 적용되기 때문에
+`/home/images/foo.png` 는 맞지만, `/home/images/foo/bar.png`는 맞지 않다.
+
+`FilePathField` 인스턴스는 100자인 `varchar` 열로 데이터베이스에 만들어진다. 다른 필드와 마찬가지로 `max_length` 인수를 사용하여 최대 길이를 변경 가능하다.
+
+### FloatField
+
+#### class FloatField(\*\*options)
+
+파이썬의 `float` 인스턴스로 표현된 부동 소수점 숫자
+
+기본 form 위젯은 `localize`가 `False`이면 `NumberInput`, 아니면 `TextInput`
+
+> DecimalField와 FloatField는 컴퓨터 내부에서 수를 다르게 나타낸다.
+
+### ImageField
+
+#### class ImageField(upload_to=None, height_field=None, width_field=None, max_length=100, \*\*options)
+
+`FileField`의 모든 속성과 메서드를 상속하지만, 업로드된 객체가 유효한 이미지인지 검사한다.
+
+게다가 `FileField`에 사용할 수 있는 속성외에 `height`, `width` 속성이 존재한다.
+
+이러한 속성에 대한 쿼리를 용이하게 하기 위해서 두가지 선택 인수가 존재한다.
+
+**ImageField.height_field**
+모델 인스턴스가 새로 저장될 때 마다 이미지의 높이로 자동으로 채워지는 모델 필드의 이름이다.
+
+**ImageField.width_field**
+모델 인스턴스가 새로 저장될 때 마다 이미지의 길이로 자동으로 채워지는 모델 필드의 이름이다.
+
+`Pillow` 라이브러리가 필요하다.
+
+`ImageField` 인스턴스는 기본 최대 길이가 100자인 varchar 열로 데이터베이스에 만들어진다. 다른 필드와 마찬가지로 `max_length` 인수를 사용하여 최대 길이를 변경할 수 있다.
+
+기본 위젯은 `ClearableFileInput`
+
+### IntegerField이다
+
+#### class IntegerField(\*\*options)
+
+\-2147483648 부터 2147483647까지 저장할 수 있는 정수 필드
+`MinValueValidator`와 `MaxValueValidator`를 사용하여 데이터베이스가 지원하는 값에따라 유효성을 검사한다.
+
+기본 위젯은 `localize`가 `False`일 때 `NumberInput`, 아니면 `TextInput`
+
+### GenericIPAddressField
+
+#### class GenericIPAddressField(protocol='both', unpack_ipv4=False, \*\*options)
+
+IPv4, IPv6 를 표현하기 위한 타입.
+기본 위젯은 `TextInput`
+
+IPv6 주소 정규화는 `RFC 4291 # section-2.2` 를 따르며, IPv4는 그 섹션의 3번째 단락에서 제안된 포맷을 따른다.
+IPv4 의 표현방식 `::ffff:192.0.2.0`
+`2001:0::0:01`은 `2001::1`로 간소화되고
+`::ffff:0a0a:0a0a`는 `::ffff:10.10.10.10`로 정규화된다.
+모든 문자는 소문자화 된다.
+
+**GenericIPAddressField.protocol**
+
+지정된 프로토콜에대한 유효한 입력을 제한한다. 허용되는 값은 `both(기본값)`, `IPv4`, `IPv6`. 대소문자를 구분하지 않는다.
+
+**GenericIPAddressField.unpack_ipv4**
+
+이 옵션을 키면 위에서 `RFC_4291`의 포맷인 `::ffff:192.0.2.1`을 `192.0.2.1`로 바꿔 나타내준다. 기본은 `False`이며, 오직 `protocol`이 `both`일 때만 사용할 수 있다.
+
+
+공백값을 허용하는 경우 공백 값은 NULL로 저장되므로 NULL 값을 허용해야 한다.
+
+### NullBooleanField
+
+#### class NullBooleanField(\*\*options)
+
+`BooleanField`에 `null=True`와 한것과 같다.
+
+### PositiveIntegerField
+
+#### class PositiveIntegerField(\*\*options)
+
+IntegerField와 같지만, 0부터 2147483647까지 나타낼 수 있게 한다. 이전 버전과의 호환성을 위해 0 값이 허용된다.
+
+### PositiveSmallIntegerField
+
+#### class PositiveSmallIntegerField(\*\*options)
+
+PositiveIntegerField와 같지만 0부터 32767까지 나타낼 수 있게 한다.
+
+### SlugField
+
+#### class SlugField(max_length=50, \*\*options)
+
+`Slug`는 신문의 용어이다. slug는 문자, 숫자, 밑줄 또는 하이픈만 포함하는 짧은 레이블이다. 이것들은 보통 URL에 사용된다.
+
+
+`CharField`와 마찬가지로 `max_length`를 지정할 수 있다. `max_length`를 지정하지 않으면 50 의 기본길이를 가진다.
+
+이 필드는 `Field.db_index`를 True로 설정되어 있다.
+
+다른 값의 값을 기반으로 `SlugField`를 자동으로 미리 채우는 것이 유용하다. `prepopulated_field`를 사용하여 관리자에서 자동으로 이 작업을 수행할 수 있다.
+
+검증을 위해 `validate_slug` 또는 `validate_unicode_slug`를 사용한다.
+
+**SlugField.allow_unicode**
+
+`True` ASCII 문자, Unicode 문자를 모두 허용한다. 기본은 `False`
+
+### SmallIntegerField
+
+#### class SmallIntegerField(\*\*options)
+
+`IntegerField`와 같지만 \-32768 ~ 32767까지 허용한다.
+
+### TextField
+
+#### class TextField(\*\*options)
+
+큰 텍스트 필드
+기본 위젯은 `TextArea`
+
+`max_length`를 지정하면 자동 생성 양식 필드의 `TextArea` 위젯에 반영된다. 그러나 모델 또는 데이터베이스 수준에는 적용되지 않는다. `max_length`를 사용하고싶으면 `CharField`를 사용하자.
+
+### TimeField
+
+#### class TimeField(auto_now=Flase, auto_now_add=False, \*\*options)
+
+Python의 `datetime.time` 인스턴스로 나타내는 필드. 옵션은 `DateField` 의 옵션과 같다.
+
+기본 위젯은 `TextInput`, admin은 Javascript Shortcut을 지원해준다.
+
+### URLField
+
+#### class URLField(max_length=200, \*\*options)
+
+`CharField`로 나타내는 url `URLValidator`로 유효성을 검사한다.
+
+기본 위젯은 `TextInput`
+
+`CharField`의 하위 클래스와 같이 max_length 옵션을 가진다. 기본은 200
+
+### UUIDField
+
+#### class UUIDField(\*\*options)
+
+python 의 `UUID` 클래스를 사용하여 해당 내용을 저장하기 위한 필드.
+PostgreSQL을 사용하면 `uuid` 데이터 타입을 사용하고, 다른 SQL에서는 char(32)를 사용한다.
+
+UUID는 `primary_key`에 대한 `AutoField` 대신 사용할 수 있는 방법이다. 데이터베이스는 UUID를 생성하지 않으므로 기본값으로 사용하는 것을 추천한다.
+
+```python
+import UUID
+from django.db import models
+
+class MyUUIDModel(models.Model):
+	id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+```
+이 때 UUID 인스턴스가 아니라, 호출가능 객체가 기본값으로 전달된다.
+
+## Relationship Field
+
+### ForeignKey
+
+#### class ForeignKey(to, on_delete, \*\*options)
+
+`Many-to-one` 관계를 나타내고, 두가지 필수 인자를 필요로 한다.
+`recursive relationship` 관계를 나타내고싶으면 `models.ForeignKey('self', on_delete=models.CASCADE)` 를 사용한다.
+
+아직 정의되지 않은 모델에 관계를 작성해야하는 경우 모델 오브젝트 자체가 아닌 모델 이름을 사용할 수 있다. (Object가 아닌 Str)
+
+```python
+from django.db import models
+
+class Car(models.Model):
+	manufacturer = models.ForeignKey(
+		'Manufacturer',
+		on_delete=models.CASCADE,
+	)
+
+class Manufacturer(models.Model):
+	pass
+```
+
+`abstract models` 방식으로 정의된 관계는 모델이 구체적인 모델로 서브클래스화되고 추상 모델의 `app_label`과 관련이 없는 경우 해결된다.
+
+```Python
+from django.db import models
+
+class AbstractCar(models.Model):
+	manufacturer = models.ForeignKey(
+		'Manufacturer',
+		on_delete=models.CASCADE
+	)
+
+	class Meta:
+		abstract = True
+
+class Car(AbstractCar):
+	pass
+```
+
+다른 응용 프로그램에 정의 된 모델을 참조하려면 전체 응용 프로그램 레이블이 있는 모델을 명시적으로 지정해야한다. 예를들어 Manufacturer 모델이 production 이라는 다른 응용 프로그램에 정의되어 있는 경우 다음을 사용해야한다.
+
+```Python
+class Car(models.Model):
+	manufacturer = models.ForeignKey(
+		'production.Manufacturer',
+		on_delete=models.CASCADE,
+	)
+```
+
+`lazy relationship` 이라고 불리는 이 종류의 참조는 두 application 간 `circular import dependencies` 종속성을 해결할 때 유용할 수 있다.
+
+데이터베이스의 인덱스는 `ForeignKey`에 자동으로 작성된다. `db_index` `False`를 통해서 비활성화 할 수 있다. 조인이 아닌 일관성을 위해 외래 키를 작성하거나 부분 또는 다중 컬럼 index 와 같은 대체 index를 작성할 경우 index의 오버헤드를 피할 수 있다.
+
+**Database Representation**
+
+Django는 필드 이름에 "\_id"를 추가하여 데이터베이스 열 이름을 생성한다. 위 예제에서 `Car` 모델은 데이터베이스에 `manufacturer_id` 컬럼이 생성된다. (`db_column` 속성을 이용해 바꿀 수 있다.) 그러나 사용자지정 SQL을 작성하지 않으면 Django 코드에서 데이터베이스 열 이름을 처리할 필요가 없다. 항상 Django 모델 객체의 필드 이름을 다룰것이다.
+
+---
+
+**Arguments**
+
+**ForeignKey** 는 세부정보를 정의하는 다른 인수를 허용한다.
+
+**ForeignKey.on_delete**
+
+`ForeignKey`가 참조하는 객체가 삭제되면 Django는 `on_delete` 인수로 지정된 SQL 제약 조건의 동작을 실행한다.
+
+아래 내용은 참조하는 객체가 삭제되면 해당 열을 NULL로 지정하라는 문장이다.
+```python
+user = models.ForeignKey(
+	User,
+	models.SET_NULL,
+	blank=True,
+	null=True,
+)
+```
+
+`on_delete`는 데이터베이스에 제약조건을 만들지 않는다.
+해당 속성에 가능한 값은 `django.db.models`에서 찾을 수 있다.
+
+- CASCADE
+	계단식 삭제, Django는 SQL 제약조건에 ON DELETE CASCADE 를 실행하고, ForeignKey를 포함하는 객체를 삭제한다.
+
+	`Model.delete()`는 관련 모델에서 호출되지 않지만 삭제된 모든 객체에 대해 `pre_delete` 및 `post_delete` 신호가 전송된다.
+
+- PROTECT
+	`django.db.IntegrityError`의 하위 클래스인 `ProtectedError`를 발생시켜 참조된 객체의 삭제를 방지한다.
+
+- SET_NULL
+	`null=True`가 있다면 `ForeignKey` 필드를 null로 지정한다.
+
+- SET_DEFAULT
+	기본값으로 설정된다.
+
+- SET()
+	호출가능 객체가 전달된 경우, 호출의 결과를 가져온다.
+
+```python
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.db import models
+
+def get_sentinel_user():
+	return get_user_model().objects.get_or_create(username='deleted')
+
+class MyModel(models.Model):
+	user = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.SET(get_sentinel_user),
+	)
+```
+
+- DO_NOTHING
+	아무런 행동도 하지 않는다. 데이터베이스 필드에 제약조건 `ON_DELETE`를 수동으로 추가하지 않으면 `IntegrityError`가 발생한다.
+
+**ForeignKey.limit_choices_to**
+이 필드가 `ModelForm` 또는 관리자를 사용하여 렌더링될 때 이 필드에 대한 사용 가능한 선택 사항에 대한 제한을 설정할 수 있다. (기본적으로 모든 쿼리셋의 오브젝트를 선택할 수 있다.) dict, Q 객체, dict, Q 객체를 리턴하는 호출가능 객체를 사용가능하다.
+
+```python
+staff_member = models.ForeignKey(
+	User,
+	on_delete=models.CASCADE,
+	limit_choices_to={'is_staff': True},
+)
+```
+
+`ModelForm`의 해당 필드가 `is_staff`가 `True`인 사용자만 나열하도록 한다.
+예를들어 Python datetime 모듈과 함께 사용하여 날짜 범위에 따른 선택을 제한하는 경우, 호출 가능 형식이 유용하다.
+
+```python
+def limit_pub_date_choice():
+	return {'pub_date__lte': datetime.date.utcnow()}
+
+limit_choices_to = limit_pub_date_choice
+```
+
+`limit_choices_to`가 복잡한 쿼리에 유용한 `Q object`를 반환하면 모델의 `ModelAdmin` 필드가 `raw_id_field`에 나열되지 않은 경우에만 관리자가 사용할 수 있는 선택 항목에 영향을 미친다.
+
+> callable이 `limit_choices_to`에 사용되면, 새로운 인스턴스가 생성될 때마다 호출된다. 관리자나 관리 명령에 의해 모델이 검증될 때 호출될 수 있다. 관리자는 다양한 폼 입력 검증을 위해 쿼리세트를 구성하므로 호출 가능 항목이 여러번 호출 될 수 있다.
+
+**ForeignKey.related_name**
+
+
+관련 객체에서 이 객체에 대한 관계에 사용할 이름이다. `related_query_name`의 기본값이기도 하다. (타겟 모델이 역참조할 때 사용할 이름) 추상모델에서 `related_name`을 사용할 때 특별한 구문을 사용할 수 있다. (같은 역참조가 발생하면 오류를 발생하기 때문에 현재 클래스 이름, 앱 이름을 사용하는 특별한 구문이 필요하다.)
+
+역참조를 만들게하고싶지 않는다면 `related_name`을 `+`로 만든다.
+
+```python
+user = models.ForeignKey(
+	User,
+	on_delete=models.CASCADE,
+	related_name='+',
+)
+```
+
+**ForeignKey.related_query_name**
+
+역방향 필터에서 사용할 이름. 설정되어 있지 않은경우 `related_name` 이름 또는 `default_related_name`을 상속받고, 그렇지 않은경우 기본값은 모델의 이름의 소문자화이다.
+
+```python
+class Tag(models.Model):
+	article = models.ForeignKey(
+		Article,
+		on_delete=models.CASCADE,
+		related_name='tags',
+		related_query_name='tag',
+	)
+	name = models.CharField(max_length=255)
+
+Article.objects.filter(tag__name='important')
+```
+
+`related_name`과 마찬가지로 `related_query_name`에도 특수한 구문을 사용할 수 있다.
+
+**ForeignKey.to_field**
+
+관계가 있는 관련 객체의 필드, 기본적으로 Django의 관련 객체의 기본키를 사용하지만, 다른 필드를 사용하는 경우 해당 필드는 `unique=True`이어야한다.
+
+**ForeignKey.db_constraint**
+
+이 외래키에 대해 데이터베이스에 제약조건을 만들어야하는지 여부를 제어한다.
+기본값은 `True`, 거의 확실히 이것만 쓴다.
+`False` 일시 데이터 무결성이 매우 나빠진다.
+
+**ForeignKey.swappable**
+
+이 `ForeignKey`가 swappable한 모델을 가리키는 경우 마이그레이션 프레임워크의 반응을 제어한다.
+
+(?)
+
+
+### ManyToManyField
+
+#### class ManyToManyField(to, \*\*options)
+
+ManyToMany 관계를 나타낸다. `recursive`, `lazy relationships` 관계를 포함하여 모델 클래스 위치 인자가 필요하다.
+
+
+`Related Objects`는 `RelatedManage`를 통해 추가, 제거 또는 생성할 수 있다.
+
+**Database Representation**
+
+Django는 `many-to-many` 관계를 표현하기 위해 중간 조인 테이블을 생성한다. 기본적으로 이 테이블의 이름은 필드의 이름과 그 안에 들어있는 모델의 테이블 이름을 사용하여 생성하게 된다. 일부 데이터베이스는 특정 길이 이상의 테이블 이름을 지원하지 않으므로 이러한 테이블 이름은 자동으로 64자로 잘리고 고유성 해시가 사용된다. 즉, `author_book_9cd4f`와 같은 테이블이름이될 수 있다. db_table 옵션을 사용하여 조인 테이블의 이름을 수동으로 제공할 수 있다.
+
+---
+
+**Arguments**
+
+**ManyToManyField** 는 관계함수 제어를 위한 인자를 제공한다.
+
+**ManyToManyField.related_name**
+**ManyToManyField.related_query_name**
+**ManyToManyField.limit_choices_to**
+ `through` 매개변수를 이용하여 지정한 중간 테이블이 있는 `ManyToManyField`에서 사용될 때 아무런 영향을주지 못한다.
+**ManyToManyField.symmetrical**
+	첫 위치인자로 'self'를 주게 되는 것.
+	Django는 이 모델을 처리할 때 `ManyToManyField`가 있음으로 식별하므로 Person 클래스에 `person_set` 속성을 추가하지 않는다. 대신, `ManyToManyField`는 대칭이라고 가정한다.
+
+	자신과 `ManyToMany` 관계에서 대칭을 원하지 않으면 `False`로 설정한다. 이렇게하면 `Django`가 역방향 관계에 대한 설명을 추가하게 되어 `ManyToMany`가 비대칭이 되게 할 수 있다.
+
+**ManyToManyField.through**
+Django는 다대다 관계를 관리 할 테이블을 자동으로 생성한다.
+그러나 중개 테이블을 수동으로 지정하려면 through 옵션을 사용하여 사용할 중간 테이블을 나타내는 Django 모델을 지정할 수 있다.
+
+이 옵션의 가장 일반적인 용도는 추가 데이터를 다대다 관계와 연관시키려는 경우이다.
+
+만약 `through`에 모델을 명시하지 않으면, 연관을 유지하기위해 생성된 암시적 `through` 모델 클래스가 있다. 이 모델은 3개의 필드를 갖는다.
+
+원본 및 대상 모델이 다른경우 다음 필드가 생성된다.
+- id
+- <containing_model>\_id
+- <other_model>\_id
+
+자신의 모델을 가리키는 경우
+- id
+- from\_<model>\_id
+- to\_<model>\_id
+
+이 클래스는 일반 모델과 같이 특정 모델 인스턴스에 대한 관련 레코드를 쿼리하는데 사용할 수 있다.
+
+**ManyToManyField.through_fields**
+
+사용자 지정 매개 모델이 지정된 경우에만 사용된다. Django는 일반적으로 다대다 관계를 자동으로 설정하기 위해 사용할 중개 모델의 필드를 결정한다.
+
+```python
+from django.db import models
+
+class Person(models.Model):
+    name = models.CharField(max_length=50)
+
+class Group(models.Model):
+    name = models.CharField(max_length=128)
+    members = models.ManyToManyField(
+        Person,
+        through='Membership',
+        through_fields=('group', 'person'),
+    )
+
+class Membership(models.Model):
+    group = models.ForeignKey(Group, on_delete=models.CASCADE)
+    person = models.ForeignKey(Person, on_delete=models.CASCADE)
+    inviter = models.ForeignKey(
+        Person,
+        on_delete=models.CASCADE,
+        related_name="membership_invites",
+    )
+    invite_reason = models.CharField(max_length=64)
+```
+
+`Membership`은 `Person`(person 과 inviter) 두개의 왜래키를 가지고 있어 관계가 모호해지고 장고는 사용할 관계를 알 수 없다. 이 경우 Django가 `through_fields`를 사용하여 외래키를 명시적으로 지정해야한다.
+
+`through_fields`는 2-tuple`('field1', 'field2')`를 허용한다. 여기서 `field1`은 `ManyToManyField`가 정의된 모델의 외래 키 이름(이 경우 group)이고.`field2`의 경우 목표 모델의 외래 키(이 경우 person)의 이름이다.
+
+다대다 관계에 참여하는 모델 중 하나의 중개 모델에 둘 이상의 외래 키가 있는 경우 `through_fields`를 지정해주어야한다. 중간모델이 사용되고 모델에 외래키가 두개 이상이거나 Django가 사용할 두개(?)를 명시적으로 지정하려는 경우에도 재귀관계에도 적용된다.
+
+중간 모델을 사용하는 재귀 관계는 항상 비대칭, `symmetrical=False`로 정의되므로 이때 `Source` 와 `Target`이 존재한다. 이 때 `field1`은 `Source`로 취급되고 `Target`은 `Field2`로 취급된다.
+
+**ManyToManyField.db_table**
+
+MnayToMany 데이터 저장을 위한 테이블의 이름을 지정한다. 제공되지않으면, Django에서 관계를 정의하는 모델의 테이블과 필드 자체의 이름을 기반으로 기본 이름을 사용한다.
+
+**ManyToManyField.db_constraint**
+중간 테이블의 왜래 키에 대해 데이터베이스에 제약조건을 생성하는지 여부를 제어한다. 기본은 True, 대부분 이 설정을 사용한다.
+`False`롤 설정하게되면 무결성이 나빠지게 된다. db_constraint와 through를 모두 사용하는 것은 오류이다.
+
+**ManyToManyField.swappable**
+
+(?)
+
+### OneToOneField
+
+#### class OneToOneField(to, ono_delete, parent_link=False, \*\*options)
+
+일대일 관계, 개념적으로 이는 `unique=True`인 `ForeignKey`와 비슷하지만 `reverse`참조시 하나의 객체를 직접 반환한다.
+다른 모델을 확장하는 모델의 기본키로 가장 유용하다. 다중 테이블 상속은 하위 모델에서 상위 모델에 대한 암시적 일대일 관계를 추가하여 구현한다.
+
+위치인자가 하나 필요하다. 재귀, `lazy relationships` 옵션을 포함한 `ForeignKey`와 똑같이 작동한다.
+
+`OneToOneField`에 `related_name` 인수를 지정하지 않으면 Django는 현재 모델의 소문자 이름을 기본값으로 사용한다.
+
+```python
+from django.conf import settings
+from django.db import models
+
+class MySpecialUser(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+    )
+    supervisor = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='supervisor_of',
+    )
+```
+
+최종 사용자 모델에는 다음의 속성이 존재한다.
+
+```python
+>>> user = User.objects.get(pk=1)
+>>> hasattr(user, 'myspecialuser')
+True
+>>> hasattr(user, 'supervisor_of')
+True
+```
+관련 테이블 항목이 없는 경우 역방향 참조에 액세스 할 때 DoesNotExist 예외가 발생한다. `MySpecialUser`에 `supervisor`가 존재하지 않는 경우
+
+```python
+>>> user.supervisor_of
+Traceback (most recent call last):
+    ...
+DoesNotExist: User matching query does not exist.
+```
+
+게다가 `OneToOneField`는 `ForeignKey`가 허용하는 추가인수와, 하나의 추가인수를 더 허용한다.
+
+**OneToOneField.parent_link**
+
+`True`이고, 다른 구체적 모델을 상속받은 모델을 사용할 때 서브클래싱을 통해 암시적으로 만들어지는 추가적 OneToOne필드가 아니라 이 필드는 부모 클래스에 대한 링크로 사용되여야 함을 나타낸다.
+
+## Field API reference
+
+### class Field
+
+필드는 데이터베이스 테이블 열을 나타내는 추상 클래스이다. Django는 데이터베이스 테이블을 만들기위해 `db_type()`을 참조하고 Python 타입과 database 타입을 매핑시키기 위해 `get_prep_value()`를 사용하고, 반대 경우엔 `from_db_value()`를 사용한다.
+
+따라서 `Field`는 Django API, 특히 models와 querysets의 기본적인 요소이다.
+
+모델에서 필드는 클래스 속성으로 인스턴스화되고 특정 테이블의 열을 나타낸다. `null`과 `unique`같은 속성과 Django 필드 값을 데이터베이스 특정 값으로 매핑하는 메서드를 가지고 있다.
+
+`Field`는 `RegisterLookupMixin`의 하위클래스이므로 `Transform` 및 `Lookup`을 `QuerySet`에서 사용할 수 있다. (예: `field_name__exact='foo'`). 모든 `bulit-in lookups`는 기본적으로 등록되어 있다.
+
+모든 Django의 `CharField`처럼 buit-in 필드는 특정 필드의 구현이다. 사용자 정의 필드가 필요하면 기본 제공 필드를 서브 클래스로 만들거나 필드를 처음부터 작성할 수 있다.
+
+**Description**
+
+	해당 필드의 자세한 설명
+
+	`Description` 형식은 다음과 같다.
+	```python
+		description = _("String (up to %(max\_length)s)")
+	```
+
+	필드의 `__dict__` 안에 해당 인자가 넣어지게 된다.
+
+장고는 `Field`를 데이터베이스 관련 타입으로 매핑하기위해 메소드를 제공한다.
+
+**get_internal_type()**
+	백엔드에서 특수한 목적으로 사용되는 현재 필드의 이름을 나타내는 문자열을 반환한다. 기본적으로, 클래스 이름을 반환한다.
+
+**db_type(connection)**
+	제공된 인자 `Field`에 매핑되는 데이터베이스에서 사용하는 데이터 타입을 반환한다.
+
+**rel_db_type(connection)**
+	`ForeignKey`, `OneToOne`로 나타내는`Field`에 매핑되는 데이터베이스에서 사용하는 데이터 타입을 반환한다.
+
+
+장고에서는 데이터베이스와 상호작용할 수 있는 세가지 상황이 존재한다.
+	- 데이터베이스로 쿼리할 때 (Python Value -> database backend value)
+	- 데이터베이스에서 데이터를 로드할 때 ( database backend value -> Python Value )
+	- 데이터베이스로 저장할 때 (Python Value -> database backend value)
+
+**get_prep_value(value)**
+	`value`는 모델 속성의 현재 값이며, 메서드는 쿼리의 매개변수로 사용하기 위해 준비된 형식으로 데이터를 반환해야한다.
+
+**get_db_prep_value(value, connection, prepared=False)**
+	`value`를 백엔드 값으로 변환한다. 기본적으로 `prepared=True`일경우 값을 반환하고, `False`일경우 `get_prep_vlaue()`를 반환한다.
+
+**from_db_value(value, expression, connection)**
+	데이터를 로드할 때 사용한다.
+	데이터베이스에서 반환한 값을 파이썬 객체로 변환한다. `get_prep_value()`의 반대이다.
+	이 메서드는 데이터베이스 백엔드가 이미 올바른 파이썬 유형을 리턴하거나 백엔드 자체가 변환을 수행하므로 대부분의 built-in 필드에서는 사용되지 않는다.
+
+**get_db_prep_save(value, connection)**
+
+	`get_db_prep_value()`와 같지만 필드 값을 데이터베이스에 저장해야할 때 호출된다. 기본적으로 `get_db_prep_value()`를 반환한다.
+
+**pre_save(model_instance, add)**
+
+	저장 전 값을 미리 준비하기위해 `get_db_prep_save()`보다 먼저 호출되는 메서드. ( 예: `DateField.auto_now`)
+
+	model_instance는 이 필드가 속하는 인스턴스이며, add는 인스턴스가 데이터베이스에 처음 저장되는지 여부이다.
+	이 필드의 model_instace에서 적절한 속성 값을 반환해야한다. 속성 이름은 `self.attname`에 있다.
+
+**to_python(value)**
+
+	필드는 serialize 것처럼 가끔 다른 유형을 값을 받게되는데,
+	값을 올바른 Python 객체로 변환한다. `value_to_string()`의 역으로 작동하며, `clean()`에서도 호출된다.
+
+**value_from_object(obj)**
+
+	필드는 데이터베이스에 저장하기위해 serialize 하는 법을 알아야한다.
+	주어진 모델 인스턴스의 필드 값을 반환한다.
+	이 메서드는 종종 `value_to_string()`에 의해 사용된다.
+
+**value_to_string(obj)**
+
+	`obj`를 문자열로 바꾼다. 필드 값을 직렬화하는데 사용된다.
+
+**formfield(form_class=None, choices_form_class=None, **kwargs)**
+
+	`ModelForm`에 대한 필드의 기본 `django.forms.Field`를 반환한다.
+
+	기본적으로 `form_class`와 `choices_form_class`는 None이면 `CharField`를 사용한다.
+	만약 필드에 `choices`필드가 존재하고, `choices_form_class`가 지정되지 않은 경우, `TypedChoiceField`를 사용한다.
+
+**deconstruct()**
+
+	필드를 다시 만들 수 있는 충분한 정보가 있는 4-tuple을 반환한다.
+
+	1. model의 필드 이름
+	2. field의 import path ( 예: `django.db.models.IntegerField` ). 가벼운 버전이여야하므로, 덜 구체적인 것이 좋을 수 있다.
+	3. 위치인자
+	4. 키워드 인자
+
+# Field attribute reference
+
+모든 Field 인스턴스는 해당 동작으로 검사할 수 있는 여러 속성이 포함되어 있다. 필드의 기능에 따라 코드를 작성해야하는 경우, `isinstance` 대신 이러한 속성을 사용한다. 이 속성들은 `Model._meta API`과 함께 사용하여 특정 필드 유형에 대한 검색 범위를 좁힐 수 있다.사용자 정의 필드는 이러한 플래그를 구현해야한다.
+
+## Attribute for Fields
+
+### Field.auto_created
+
+	모델 상속에 사용되는 `OneToOneField`같이 자동으로 만들어졌는지 여부를 나타내는 불리언 플래그
+
+### Field.concrete
+
+	필드에 연결된 데이터베이스 열이 있는지 여부를 나타내는 불리언 플래그
+
+### Field.hidden
+
+	(?)
+
+### Field.is_relation
+
+	다른 모델에 대한 차모가 포함되어있는지 나타내는 불리언 플래그
+
+### Field.model
+
+	필드가 정의된 있는 모델을 반환한다. 필드가 모델의 수퍼 클래스에 정의된 경우 모델은 인스턴스 클래스가 아닌 수퍼클래스를 참조한다.
+
+## Attributes for fields with relations
+
+이러한 속성은 카디널리티 및 관계의 기타 세부사항을 쿼리할 때 사용한다. 이 속성은 모든 필드에 있다.
+관계 타입이 있을 경우 `Field.is_relation=True`일것이고, 불리언 값으로 나타낸다.
+
+### Field.many_to_many
+### Field.many_to_one
+### Field.one_to_many
+### Field.one_to_one
+
+### Field.related_model
+	필드가 관련된 모델을 가리킨다. 예를 들어 ForeinKey의 Author `ForeignKey(Author, on_dete=models.CASCADE)`. GeneriecForeignKey의 related_model은 항상 None이다.

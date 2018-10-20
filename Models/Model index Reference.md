@@ -36,4 +36,4 @@ index의 이름, 이름이 제공되지 않으면 Django는 이름을 자동생�
 
 이 index에 사용할 `database tablespace`의 이름. 단일 필드 index인 경우 `db_tablespace`가 제공되지 않으면 index는 필드의 `db_tablespace`에 작성된다.
 
-`Field.db_tablespace`가 지정되지 않은경우 혹은 인덱스가 여러 필드를 사용하는 경우, 인덱스는 모델 클래스의 Meta의 `db_tablespace` 옵션에 테이블스페이스에 작성된다. `tablespace`가 설정되어있지 않은 경우, 인덱스는 테이블과 동일한 `tablespace`에 작성된다.
+`Field.db_tablespace`가 지정되지 않은경우 혹은 인덱스가 여러 필드를 사용하는 경우, 인덱스는 모델 `Class Meta`의 `db_tablespace` 옵션에 테이블스페이스에 작성된다. `tablespace`가 설정되어있지 않은 경우, 인덱스는 테이블과 동일한 `tablespace`에 작성된다.(?)

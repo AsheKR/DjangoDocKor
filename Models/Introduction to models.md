@@ -298,3 +298,280 @@ class User(models.Model):
 >>> user.students.all()
 <QuerySet [<User: 배우미1>, <User: 배우미2>, <User: 배우미3>]>
 ```
+
+### Many-To-Many Relationships
+
+many-to-many 관계 정의를 위해서는, `ManyToManyField`를 사용한다.
+`ManyToManyField`는 관계를 정의할 모델 클래스를 인수로 가져야한다.
+
+예를 들어 `Pizza`모델은 여러개의 `Topping`객체를 가질 수 있다. `Topping`은 여러개의 `Pizza` 위에 올라갈 수 있으며, `Pizza` 역시 여러개의 `Topping`을 가질 수 있다.
+
+```python
+from django.db import models
+
+
+class Topping(models.Model):
+  name = models.CharField(max_length=10)
+
+  def __str__(self):
+    return self.name
+
+
+class Pizza(models.Model):
+  name = models.CharField(max_length=10)
+  toppings = models.ManyToManyField(Topping)
+
+  def __str__(self):
+    return self.name
+```
+
+`ManyToManyField`는 어느쪽의 모델에 있어도 상관없지만 단 하나의 모델에만 존재해야한다. 그래서 의미상으로 맞는 쪽으로 필드를 두어야한다. 피자가 많은 토핑을 갖는지, 토핑이 많은 피자를 갖는지. 이 필드는 데이터베이스의 새 테이블을 만들어 관계를 정의한다.
+
+새 테이블의 이름은 `<appname>_<classname__lowercase>_<ManyToManyField>` 이름으로 만들어지게 된다.
+즉, `<appname>_pizza_toppings`로 만들어지게 된다. 해당 테이블의 row에는 중간 테이블의 PK인 `id`, pizza 테이블의 ForeignKey인 `pizza_id`, topping 테이블의 ForeignKey인 `topping_id`를 기본적으로 가지게 된다.
+
+여기서도 `recursive relationships`와 `relationships to models not yet defined`를 사용할 수 있다.
+일반적으로 필드 명은 관계된 모델 객체의 복수형을 추천하지만, 필수는 아니다.
+
+```python
+>>> 치즈피자, 불고기피자 = [Pizza.objects.create(name=name) for name in '치즈 불고기'.split()]
+>>> 치즈, 불고기, 피망 = [Topping.objects.create(name=name) for name in '치즈 불고기 피망'.split()]
+# ManyToMany 에서는 save를 호출하지 않고 add 만하더라도 자동으로 데이터베이스에 추가가된다.
+# 아래 내용은 하나의 열의 데이터를 생성한다.
+>>> 치즈피자.toppings.add(치즈)
+# 아래 내용은 세개의 열의 데이터를 생성한다.
+>>> 불고기피자.toppings.add(치즈, 불고기, 피망)
+# 정방향 참조시에는 필드 이름을 사용한다.
+>>> 치즈피자.toppings.all()
+<QuerySet [<Topping: 치즈>]>
+>>> 불고기피자.toppings.all()
+<QuerySet [<Topping: 치즈>, <Topping: 불고기>, <Topping: 피망>]>
+# 역방향 참조시 기본적으로 `<classname__lowercase>_set`으로 참조하게 된다.
+>>> 치즈.pizza_set.all()
+<QuerySet [<Topping: 치즈피자>, <Topping: 불고기피자>]>
+```
+
+---
+
+### Extra fields on many-to-many Relationships
+
+이외에도, 피자 토핑 연결 대한 추가적인 정보(토핑이 추가된 시기, 해당 피자에 얼마나 토핑이 올라가는가)를 해결하기 위해서는 `intermediate`(중간)모델을 사용한다.
+
+#### Intermediate
+
+```python
+from django.db import models
+
+class Person(models.Model):
+  name = models.CharField(max_length=120)
+
+  def __str__(self):
+    return self.name
+
+
+class Group(models.Model):
+  name = models.CharField(max_length=120)
+  members = models.ManyToManyField(Person, through='Membership')
+
+  def __str__(self):
+    return self.name
+
+
+class Membership(models.Model):
+  person = models.ForeignKey(Person, on_delete=models.CASCADE)
+  group = models.ForeignKey(Group, on_delete=models.CASCADE)
+  date_joined = models.DateField()
+  invite_reason = models.CharField(max_length=60)
+```
+
+```python
+>>> ringo = Person.objects.create(name="Ringo Starr")
+>>> paul = Person.objects.create(name="Paul McCartney")
+>>> beatles = Group.objects.create(name="The Beatles")
+>>> m1 = Membership(person=ringo, group=beatles, date_joined(1962, 8, 16), invite_reason="Needed a new drummer")
+>>> m2 = Membership(person=paul, group=beatles, date_joined(1960, 8, 1), invite_reason="Wanted to form a band.")
+>>> beatles.members.all()
+<QuerySet [<Person: Ringo Starr>, <Person: Paul McCartney>]>
+>>> john = Person.obejcts.create(name='john')
+>>> beatles.members.add(john)
+! ERROR 발생. # 중간모델을 사용하는 경우 추가 필드가 존재하므로 add 사용이 불가능하다. (추가 필드가 없더라도 add 사용이 불가하다!) 이외에도 일반적 many-to-many 필드와는 다르게 add, create, set 등의 직접 할당 명령어를 사용할 수 없다.
+# 그러므로 중간모델을 작성하였으면 위와같이 중간모델을 직접 생성하는 수 밖에 없다.
+```
+
+#### Recursive
+
+Many-To-Many 필드에서 한 모델 인스턴스가 다른 여러개의 모델 인스턴스를 가리키고, 다른 여러개의 인스턴스가 나의 인스턴스를 가리킬 때가 있다.예를 들어 팔로우/팔로워 관계가 그러하다.
+
+```python
+from django.db import models
+
+
+class FacebookUser(models.Model):
+  name = models.CharField(max_length=50)
+  # 재귀적 모델은 'self' 라는 이름을 사용해서 자기 자신을 가리킨다.
+  friends = models.ManyToManyField('self')
+
+  def __str__(self):
+    return self.name
+```
+
+테이블 생성 규칙은 위와 같다. `<appname>_<classname__lowercase>_<ManyToManyField>` 즉, `<appname>_facebookuser_friends` 로 테이블이 생성된다. 다른점은 안의 열의 이름이 다른데, 어떤 모델이 어떤 모델을 가리킨다를 표현하기 위해 위에서 보았던 `<classname__lowercase>_id`가 아닌 `from_facebookuser_id`, `to_facebookuser_id` 라는 열을 생성한다.
+
+
+```python
+>>> u1,u2,u3 = [FacebookUser.objects.create(name=name) for name in '박보영 아이유 수지'.split()]
+>>> u1.friends.add(u3)
+# 기본적으로 재귀관계에서는 대칭적으로 관계가 생성된다.
+# 두개의 데이터 열을 생성한다. 하나는 u1에서 u3로 friends를 걸고, 나머지 하나는 u3에서 u1으로 friends를 거는 관계를 생성한다.
+>> u1.friends.add(u2)
+# 마찬가지로 2개의 데이터 열을 생성한다.
+```
+
+#### Recursive and Intermediate
+
+#### Recursive and Symmetrical_False
+
+팔로워, 팔로우 같은 기능의 경우 상대방이 팔로우를 한다고해서 내가 상대방을 팔로우하지는 않는다. 대칭적 관계 생성을 막기 위한 옵션이 `symmetrical=False`이다.
+
+```python
+from django.db import models
+
+
+class InstagramUser(models.Model):
+  name = models.CharField(max_length=50)
+  # 내가 팔로우하는 유저 목록을 following이라 하고
+  # 나를 팔로우하는(역참조) 유저 목록을 followers 라고 하기때문에 따로 생성했다.
+  # 이렇게 비 대칭적인 구조를 가질 때 related_name을 지정해줘서 의미를 명확히 해주는것이 좋다.
+  following = models.ManyToManyField(
+    'self',
+    symmetrical=False,
+    related_name = 'followers',
+  )
+```
+
+```python
+>>> u1,u2,u3,u4 = [FacebookUser.objects.create(name=name) for name in '박보영 아이유 수지 민아'.split()]
+# u1 <- u2,u3,u4 팔로잉 관계를 만들어본다.
+>>> u2.following.add(u1)
+>>> u3.following.add(u1)
+>>> u4.following.add(u1)
+# 내가 팔로잉한 사람을 출력
+>>> u2.following.all()
+<QuerySet [<InstagramUser: 박보영>]>
+# 나를 팔로우하고 있는 사람들을 출력
+>>> u1.followers.all()
+<QuerySet [<InstagramUser: 아이유>, <InstagramUser: 수지>, <InstagramUser: 민아>]>
+```
+
+#### Recursive and Symmetrical_False and Intermediate
+
+이번엔 더 자세한 관계 기록을 하기 위해 중간 모델을 생성해본다.
+
+```python
+from django.db import models
+
+
+class TwitterUser(models.Model):
+  name = models.CharField(max_length=50)
+  relation_users = models.ManyToManyField(
+    'self',
+    # related_name에서 +는 필요 없다라는 것이다. 역 참조는 더이상 불가능해진다.
+    # twitteruser_set을 사용하였을 때 from_user에서 가져와야할지, to_user에서 가져와야할지 모르게 된다.
+    related_name='+',
+    symmetrical=False,
+    through='Relation'
+  )
+
+class Relation(models.Model):
+  CHOICES_RELATION_TYPE = (
+    ('f', 'Follow'),
+    ('b', 'Block'),
+  )
+  from_user = models.ForeignKey(
+    TwitterUser,
+    on_delete=models.CASCADE,
+    related_name='from_user_relations',
+    related_query_name='from_user_relation',
+  )
+  to_user = models.ForeignKey(
+    TwitterUser,
+    on_delete=models.CASCADE,
+    related_name='to_user_relations',
+    related_query_name='to_user_relation',
+  )
+  relation_type = models.CharField(max_length=1, choices=CHOICES_RELATION_TYPE)
+  created_at = models.DateTimeField(auto_now_add=True)
+
+  class Meta:
+    # 이 옵션을 사용한 이유는 중복을 방지하기 위함이다.
+    # 팔로우한 상태에서 블락이라는 중복값은 가지면 안되기때문에, 이 옵션을 사용하여 두개를 하나로 묶어 필드 중복값을 허용하지 않을 수 있다.
+    unique_togeter = (
+      ('from_user', 'to_user'),
+    )
+```
+
+```python
+>>> u1,u2,u3,u4 = [TwitterUser.objects.create(name=name) for name in '수지 민아 박보영 아이유'.split()]
+# u2가 u1을 팔로우
+>>> Relation.objects.create(from_user=u2, to_user=u1, relation_type='f')
+# u3가 u1을 팔로우
+>>> Relation.objects.create(from_user=u3, to_user=u1, relation_type='f')
+# u4가 u1을 팔로우
+>>> Relation.objects.create(from_user=u4, to_user=u1, relation_type='b')
+# 이렇게 역참조로 가져오게될 때 Relation 매니저를 사용하여 객체를 가져오는 문제가 발생한다.
+>>> u1.to_user_relations.all()
+<QuerySet [<Relation: 민아 to 수지 (follow)>, <Relation: 박보영 to 수지 (follow)>, <Relation: 아이유 to 수지 (block)>]>
+# 그렇기 때문에 filter에 related_query_name으로 TwitterUser를 가져올 수 있다.
+>>> TwitterUser.objects.filter(to_user_relation__to_user=u1, to_user_relation__relation_type='f')
+<QuerySet [<TwitterUser: 수지>, <TwitterUser: 수지>]>
+>>> TwitterUser.objects.filter(from_user_relation__to_user=u1, from_user_relation__relation_type='f')
+<QuerySet [<TwitterUser: 민아>, <TwitterUser: 박보영>]>
+```
+
+---
+
+위의 filer 내용은 상당히 헷갈려서 작성한다.
+두가지 방법의 SQL문, 결과를 비교해서 설명한다.
+
+첫번째는 `to_user_relation`을 사용하는 것
+```python
+TwitterUser.objects.filter(to_user_relation__to_user=u1)
+```
+이 내용은 깔끔히 정리하면 다음 SQL로 만들어진다.
+```sql
+SELECT * FROM TwitterUser
+INNER JOIN Relation ON (TwiiterUser.id=Relation.to_user_id)
+WHERE from_user_id=u1
+```
+WHERE절을 제외한 결과는 다음과 같다.
+id | name | id | relation_type | created_at | from_user_id | to_user_id |
+---|------|----|---------------|-----------|--------------|------------|
+1 |  수지 | 1 |  'f'           |          |              2 |            1 |
+1 |  수지 |  2 |  'f'           |			      |            3 |            1 |
+1 |  수지 |  3 |  'b'           |           |            4 |            1 |
+두번째는 `from_user_relation`을 사용하는 것
+```python
+TwitterUser.objects.filter(from_user_relation__to_user=u1)
+```
+```sql
+SELECT * FROM TwitterUser
+INNER JOIN Relation ON (TwiiterUser.id=Relation.from_user_id)
+WHERE from_user_id=u1
+```
+WHERE절을 제외한 결과는 다음과 같다.
+id | name | id | relation_type | created_at | from_user_id | to_user_id |
+---|------|----|---------------|-----------|--------------|------------|
+2 |  민아 | 1 |  'f'           |          |               2 |            1 |
+3 | 박보영 |  2 |  'f'           |			      |            3 |            1 |
+4 | 아이유 |  3 |  'b'           |           |            4 |            1 |
+
+SQL에서 다른점을 찾아보자면 JOIN할 때 어느 필드에 조인할것인지가 달라진다.
+`TwitterUser.id=Relation.to_user_id`, `TwitterUser.id=Relation.from_user_id`
+
+1. `to_user_relation`으로 filter를 걸면
+2. 데이터베이스의 `to_user_id`필드의 값에 해당하는 TwitterUser의 정보를 가져온다.
+3. 그렇기 때문에 수지수지수지 라는 결과가 나오게 되는것이다!
+
+그리고 이 이후에 WHERE 조건이 걸리게되어 해당 값이 나오게 된다.
+
+---

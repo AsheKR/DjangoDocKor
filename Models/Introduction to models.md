@@ -575,3 +575,108 @@ SQL에서 다른점을 찾아보자면 JOIN할 때 어느 필드에 조인할것
 그리고 이 이후에 WHERE 조건이 걸리게되어 해당 값이 나오게 된다.
 
 ---
+
+### One-to-one relationships
+
+one-to-one 관계를 정의하려면, `OneToOneField`를 이용하면 된다. 다른 관계를 필드와 마찬가지로 모델 클래스의 어트리뷰트로 선언하면 된다.
+
+일대일 관계는 다른 모델을 확장하여 새로운 모델을 만드는 경우 유용하게 사용할 수 있다.
+
+예를 들어, 가게(Places)정보가 담긴 데이터베이스를 구축한다고 한다. 아마 데이터베이스에 주소, 전화번호 등의 정보가 들어간다. 그런데 맛집 데이터베이스를 추가적으로 구축할 경우, 새로 Restaurant모델을 만들 수도 있지만, 반복을 피하기 위해 Restaurant모델 Place모델만 `OneToOneField`로 선언한다.
+
+`ForeignKeyField`와 마찬가지로 자기자신이나 아직 선언되지 않은 모델에 대해서도 관계를 가질 수 있다.
+
+`OneToOneField`는 `parent_link`라는 옵션을 제공한다.
+이 옵션은 구체적인 모델에서 상속한 모델에서 사용되는 경우 이 필드는 서브 클래싱하여 일반적으로 암시적으로 생성되는 OneToOneField가 아니라 부모 클래스에 대한 링크로 다시 사용해야 함을 나타낸다.
+
+`OneToOneField`는 자동으로 모델의 기본키가 되었지만, 지금은 아니다.(`primary_key` 인수를 통해 직접 지정해줄수는 있다.) 그러므로 단일 모델의 `OneToOneField`에 여러 필드를 가질 수 있다.
+
+```python
+class Place(models.Model)
+  name = models.CharField(max_length=50)
+  address = models.CharField(max_length=80)
+  
+class Restaurant(models.Model):
+  place = models.OneToOneField(
+    Place,
+    on_delete=models.CASCADE,
+    primary_key=True,
+  )
+  
+  serves_hot_dogs = models.BooleanField(default=False)
+  serves_pizza = models.BooleanField(default=False)
+```
+
+`OneToOneField`의 역참조시 `_set`이 아닌 클래스명의 소문자를 사용한다.
+또한 참조, 역참조시 `Queryset`이 아닌 하나의 객체만이 나타난다.
+
+`OneToOne` 필드 참조시 해당 객체가 없으면 `ObjectDoesNotEixst`오류가 발생한다.
+
+```python
+try:
+  Place.objects.first().restaurant
+except:
+  print('no object')
+```
+
+예외 처리하지않고 하기 위해서 `hasattr`메서드를 사용한다.
+
+해당 Place 인스턴스에 `restaurant`속성이 있는지 확인하기.
+```python
+hasattr(Place.objects.first(), 'restaurant')
+```
+
+### Models across files
+
+다른 앱에 선언된 모델과 관계를 가질 수 있다. 그렇게 하려면, 다른 앱의 모델을 import해서 아래와 같이 관계 필드를 선언하면 된다.
+
+```python
+from django.db import models
+from .models import ZipCode
+
+class Restaurant(models.Model):
+  zip_code = models.ForeignKey(
+    ZipCode,
+    on_delete=models.SET_NULL,
+    blank=True,
+    null=True,
+  )
+````
+
+### Field name restrictions
+
+장고 모델 필드명에는 2가지 제약을 두고있다.
+1. 파이썬 예약어는 필드명으로 사용할 수 없다.
+2. 필드 이름에 밑줄 두개를 연속으로 사용할 수 없다. 이는 장고에서 특별한 문법으로 사용되기때문이다.
+
+데이터베이스 컬럼명에 밑줄을 두개 넣어야하는 상황이면, db_column 옵션을 사용해 제약을 우회할 수 있다.
+
+### Custom field types
+
+장고에서 제공하는 필드 타입 중 적절한 것이 없거나, 특정 데이터베이스에서 제공하는 특별한 타입을 사용하고 싶으면, 필드를 직접 만들어 사용할 수 있다.
+
+### Meta options
+
+아래와 같이 모델 클래스 내부에 Meta 라는 이름의 클래스를 선언해서 모델에 메타데이터를 추가할 수 있다.
+
+```python
+from django.db import models
+
+class Ox(models.Model)
+  horn_length = models.IntegerField()
+  
+  class Meta:
+    ordering = ["horn_length"]
+    verbose_name_plural = "oxen"
+```
+
+모델 메타데이터는 필드의 옵션과 달리 모델 단위의 옵션을 가진다. 예를 들어 정렬옵션(ordering), 데이터베이스 테이블 이름(db_table), 또는 읽기 좋은 이름(verbose_name)이나 복수(verbos_name_plural)이름을 지정해 줄 수 있다.
+모델 클래스에 Meta클래스를 반드시 선언해야하는 것은 아니며, 또한 모든 옵션을 설정해야 하는것도 아니다.
+
+### Model attributes
+
+#### objects
+
+모델 클래스에 가장 중요한 속성은 `Manage`이다 `Manager`객체는 모델 클래스를 기반으로 데이터베이스에 대한 쿼리 인터페이스를 제공하며, 데이터베이스 레코드를 모델 객체로 인스턴스화 하는데 사용된다. 특별히 `Manager`를 할당하지 않으면 장고는 기본 `Manager`를 클래스 속성으로 자동 할당한다. 이 때, 속성 이름이 **objects**이다.
+
+`Manager` 모델 클래스를 통해 접근할 수 있으며, 모델 인스턴스(객체)를 통해서 접근할 수는 없다.

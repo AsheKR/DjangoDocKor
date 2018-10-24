@@ -595,14 +595,14 @@ one-to-one 관계를 정의하려면, `OneToOneField`를 이용하면 된다. �
 class Place(models.Model)
   name = models.CharField(max_length=50)
   address = models.CharField(max_length=80)
-  
+
 class Restaurant(models.Model):
   place = models.OneToOneField(
     Place,
     on_delete=models.CASCADE,
     primary_key=True,
   )
-  
+
   serves_hot_dogs = models.BooleanField(default=False)
   serves_pizza = models.BooleanField(default=False)
 ```
@@ -664,7 +664,7 @@ from django.db import models
 
 class Ox(models.Model)
   horn_length = models.IntegerField()
-  
+
   class Meta:
     ordering = ["horn_length"]
     verbose_name_plural = "oxen"
@@ -677,6 +677,477 @@ class Ox(models.Model)
 
 #### objects
 
-모델 클래스에 가장 중요한 속성은 `Manage`이다 `Manager`객체는 모델 클래스를 기반으로 데이터베이스에 대한 쿼리 인터페이스를 제공하며, 데이터베이스 레코드를 모델 객체로 인스턴스화 하는데 사용된다. 특별히 `Manager`를 할당하지 않으면 장고는 기본 `Manager`를 클래스 속성으로 자동 할당한다. 이 때, 속성 이름이 **objects**이다.
+모델 클래스에 가장 중요한 속성은 `Manage`이다 `Manager`객체는 모델 클래스를 기반으로 데이터베이스에 대한 쿼리 인터페이스를 제공하며, 데이터베이스 레코드를 모델 객체로 인스턴스화 하는데 사용된다. 특별히 `Manager`를 할당하지 않으면 장고는 기본 `Manager`를 클래스 속성으로 자동 할당한다. 이 때, 속성 이름이 **objects** 이다.
 
 `Manager` 모델 클래스를 통해 접근할 수 있으며, 모델 인스턴스(객체)를 통해서 접근할 수는 없다.
+
+### Model methods
+
+모델 객체(row) 단위의 기능을 구현하려면 모델 클래스에 메서드를 구현하면 된다. 테이블 단위의 기능은 Manager에 구현한다.
+
+이러한 규칙은 비즈니스 로직 모델에서 관리하는데 있어 중요한 테크닉이다.
+
+예를 들어, 다음과 같이 커스텀 메서드를 추가할 수 있다.
+
+```python
+from django.db import models
+
+
+class Person(models.Model):
+  first_name = models.CharField(max_length=50)
+  last_name = models.CharField(max_length=50)
+  birth_date = models.DateField()
+
+  def baby_boomer_status(self):
+    "Returns the person's baby-bommer status"
+    import datetime
+    if self.bith_date < datetime.date(1945, 8, 1):
+      return "Pre-bommer"
+    elif self.bith_date < datetime.date(1965, 1, 1):
+      return "Baby bommer"
+    else:
+      return "Post-bommer"
+
+  def _get_full_name(self):
+    "Returns the person's full name"
+    return "%s  %s" %(self.first_name, self.last_name)
+
+  full_name = property(_get_full_name)
+```
+
+이 예제의 마지막 메서드는 `Property`이다.
+> 프로퍼티는 메서드를 속성처럼 접근할 수 있게 해준다.
+> "\_"로 시작하는 비공개 메서드를 정의한 후, property라는 함수로 비공개 메서드를 호출하면, 그 결과가 반환되어 full_name 란에 들어가게된다.
+> 이를 줄여쓰는것이 Property getter, setter 데코레이터이다.
+
+### Overriding predefined model methods
+
+`model instance reference`에는 모델 클래스에 자동적으로 주어지는 메서드들이 나와있다. 이러한 메서드를 오버라이드해서 사용할수도 있다. 특히 `save()` 및 `delete()`의 작업방식을 바꾸는 경우가 많다.
+
+```python
+from django.db import models
+
+class Blog(models.Model):
+  name = models.CharField(max_length=100)
+  tagline = models.TextField()
+
+  def save(self, **args, **kwargs):
+    # 수행할 내용1 ...
+    super().save(*args, **kwargs) # 기존의 save() 메서드를 호출한다.
+    # 수행할 내용2 ...
+```
+
+저장을 막을 수도 있다.
+
+```python
+from django.db import models
+
+class Blog(models.Model):
+  name = models.CharField(max_length=100)
+  tagline = models.TextField()
+
+  def save(self, *args, **kwargs):
+    if self.name == "Yoko Ono's blog":
+      return # 해당 블로그는 저장하지 않겠다!
+    else:
+      super().save(*args, **kwargs)
+```
+
+슈퍼 클래스 메서드 호출하는 것을 기억하는것이 중요하다.
+
+> super().save(\*args, \*\*kwargs)
+
+이는 객체가 데이터베이스에 저장되도록한다.
+수퍼 클래스 메서드를 호출하는 것을 잊어버리면 기본 동작이 실행되지 않으며 데이터베이스에 저장하지 않는다.
+
+또한 모델 메서드에 전달할 수 있는 인수를 전달하는 것이 중요하다. 이는 `*args`, `**kwargs` 두 변수로 전달된다.
+Django는 수시로 내장 모델 메서드의 기능을 확장하여 새로운 인수를 추가한다. 메서드 정의에서 `*args`, `**kwargs`를 사용하면 코드가 추가될 때 해당 인수를 자동으로 지원받는다는 보장을 받는다.
+
+> 오버라이드된 모델 메서드는 `bulk operations`에서는 동작하지 않는다.
+> QuerySet을 사용하여 대량으로 객체를 삭제할 때 또는 계단식 삭제의 결과로 객체의 delete()메서드가 반드시 호출되지 않을 수 있다. 사용자 정의 삭제 논리를 실행하려면 `pre_delete`와 `post_delete` 시그널을 사용할 수 있다.
+> 불행히 `bulk operations`에서는 `save()`메서드와 `pre_save` 및 `post_save` 시그널이 호출되지 않기 때문에 객체를 대량으로 만들거나, 업데이터 할 때 해결 방법이 없다.
+
+### Executing custom SQL
+
+또 다른 공통 패턴은 모델 메서드 및 모듈 수준 메서드에 사용자 지정 SQL문을 작성하는 것이다. `using raw SQL`문서를 참조하라.
+
+## Model inheritance
+`Django`의 모델 상속은 파이썬에서 일반적인 클래스 상속이 작동하는 방식과 거의 동일하게 작동하지만 반드시 따라야하는 기본 사항이 있다. 기본 클래스가 `django.db.models.Model`을 상속받아야한다.
+
+부모 모델이 자체 데이터베이스 테이블을 가지는 모델이 될지 (Concrete Model),
+또는 부모가 자식 모델에게 전달할 정보만을 가지고 있는지 여부만 결정한다 (Abstract Model).
+
+`Django`에는 세가지 스타일의 상속을 제공한다.
+1. 부모 클래스를 사용하여 각 하위 모델에 대해 일일이 입력하지 않으려는 정보를 제공하는 경우, 이 클래스는 따로 분리하여 사용하지 않으므로, 즉 데이터베이스 테이블이 생성되지 않아 추가 기본 클래스(Abstract base classes)를 사용한다.
+(부모 테이블 X, 자식 테이블 O)
+
+2. 기존 모델을 하위 클래스화(다른 애플리케이션의 모델이어도 무관)하고, 각 모델이 자체 데이터베이스 테이블을 가지기 원한다면 다중 테이블 상속(Multi table Inheritance)가 필요하다.
+(부모 테이블 O, 자식 테이블 O)
+
+3. 마지막으로 모델 필드를 변경하지 않고 모델의 파이썬 동작만 수정하려는 경우 `Proxy`모델을 사용할 수 있다.
+(부모 테이블 O, 자식 테이블 X)
+
+### Abstract base classes
+
+추상 기본 클래스는 몇 가지 공통된 정보를 여러 다른 모델에 넣으려 할 때 유용하다. 기본 클래스를 작성하고 `Meta`에 `abstract=True`를 넣는다. 이 모델은 데이터베이스 테이블을 만드는데 사용되지 않는다. 대신 다른 모델의 기반 클래스로 사용될 때 해당 필드는 자식 클래스의 필드에 추가된다. 자식의 이름과 같은 이름 (상속받은 클래스의 이름과 같은 이름의 필드)를 가진 추상 기본 클래스의 필드를 갖는 것은 오류이며, `Django`는 이에 대해 오류를 발생시킨다.
+
+```python
+class CommonInfo(models.Model):
+  name = models.CharField(max_length=100)
+  age = models.PositiveIntegerField()
+
+  class Meta:
+    abstract = True
+
+class Student(CommonInfo):
+  home_group = models.CharField(max_length=5)
+```
+
+`Student` 모델에는 `name`, `age` 및 `home_group`의 세가지 필드가 있다. `CommonInfo` 모델은 `abstract base class`이기 때문에 일반 `Django`모델로 사용할 수 없다. 이 모델은 데이터베이스 테이블을 생성하지 않으며, `Manager`를 가지지 않으므로 직접 인스턴스화하거나 데이터베이스에 저장할 수 없다.
+
+### Meta inheritance
+
+추상 기본 클래스가 생성되면 Django는 기본 클래스에서 선언한 `Meta` 내부 클래스를 속성으로 사용할 수 있게한다. 자식 클래스가 자신의 메타 클래스를 선언하지 않으면 부모 클래스의 메타를 상속받는다. 자식이 부모의 `Meta`클래스를 확장하려고하면 해당 클래스를 서브클래스로 사용할 수 있다.
+
+```python
+from django.db import models
+
+
+class CommonInfo(models.Model):
+  #...
+  class Meta:
+    abstract = True
+    ordering = ['name']
+
+
+class Student(CommonInfo):
+  #...
+  class Meta(CommonInfo.Meta):
+    db_table = 'student_info'
+```
+
+Django는 추상 기본 클래스의 `Meta`클래스를 조정한다. `Meta`속성을 적용하기 전 `abstract`속성의 값을 `False`로 설정한다. 즉, 추상 기본 클래스의 자식은 자동으로 추상 클래스가 되지 않는다. 물론 다른 추상 클래스에서 상속받은 추상 클래스를 만들수도 있다. 매번 `abstract=True`를 명시적으로 설정하는것을 기억하면 된다.
+
+일부 속성은 추상 기본 클래스의 `Meta`클래스에 포함하는 것이 옳지 않다.  예를들어 `db_talbe`의 경우 모든 자식 클래스(자신의 메타를 지정하지 않은 클래스)가 동일한 데이터베이스 테이블을 사용한다는 것을 의미하기때문에, 이는 원하지 않는 동작을 초래한다.
+
+### Be careful with related_name and related_query_name으로
+`ForignKey` 또는 `ManyToManyField`에서 `related_name`과 `related_query_name`을 사용하는 경우 고유한 reverse name과 query name을 항상 지정해야한다. 이 필드들(ManyToManyField, ForignKey)를 가진 추상 기본 클래스를 상속받은 경우, 매번 해당 속성(related_name 또는 related_query_name)에 대해 정확히 동일한 값이 사용되므로 일반적으로 문제가 발생한다.
+
+이 문제를 해결하기위해 값의 일부에 `%(app_label)s` 또는 `%(class)s`를 지원한다.
+- `%(class)s`는 필드가 사용되는 하위 클래스 이름의 lower_cased 이름으로 대체된다.
+- `%(app_label)s`는 하위 클래스가 포함된 어플리케이션 이름의 lower_cased 이름으로 대체된다.
+
+설치된 각 응용 프로그램 이름은 고유해야하며 각 응용 프로그램 내 모델 클래스의 이름도 고유해야하므로 결과 이름이 달라지게된다.
+
+```python
+# common.models
+from django.db import models
+
+
+class Base(models.Model):
+  m2m = models.ManyToManyField(
+    OtherModel,
+    related_name="%(app_name)s_%(class)s_related"
+    related_query_name="%(app_name)s_%(class)ss"
+  )
+  class Meta:
+    abstract = True
+
+class ChildA(Base):
+  pass
+
+class ChildB(Base):
+  pass
+```
+
+```python
+# rare.models
+from common.models import Base
+
+
+class ChildB(Base):
+  pass
+```
+
+`common.ChildA.m2m` 필드의 `reverse_name`은 `common_childa_related`이고 `reverse_query_name`은 `common_childas`이다.
+`common.ChildB.m2m` 필드의 `reverse_name`은 `common_childb_related`이고 `reverse_query_name`은 `common_childbs`이다.
+`rare.ChildB.m2m` 필드의 `reverse_name`은 `rare_childb_related`이고 `reverse_query_name`은 `rare_childbs`이다.
+
+추상 기본 클래스의 필드에 `related_name`속성을 지정하지않으면 상속 받은 자식 클래스의 기본 `reverse_name`은 필드를 직접 선언한 경우와 마찬가지로 `<classname__lowercase>_set`이 된다.
+
+### Multi-table inheritance
+
+Django가 지원하는 모델 상속의 두번째 유형은 계층 구조의 각 모델이 모두 각각 자신을 나타내는 모델일 때이다. 각 모델은 자체 데이터베이스 테이블에 해당하며 개별적으로 쿼리하고 생성할 수 있다. 상속 관계는 자동으로 생성된 `OneToOneField`를 통해 자식 모델과 부모간의 링크를 만든다.
+
+```python
+from django.db import models
+
+
+class Place(models.Model):
+  name = models.CharField(max_length=50)
+  address = models.CharField(max_length=50)
+
+
+class Restaurant(Place):
+  serves_hot_dogs = models.BooleanField(default=False)
+  serves_pizza = models.BooleanField(default=False)
+```
+
+`Place`의 모든 필드는 `Restaurant`에서 사용할 수 있지만 데이터는 다른 데이터베이스 테이블에 있다. 그래서 아래 두 명령 모두 가능하다.
+
+```python
+>>> Place.objects.filter(name="Bob's cafe")
+>>> Restaurant.objects.filter(name="Bob's cafe")
+
+# Restaurant이면서 Place가 있는 경우, 모델 이름의 소문자 버전을 사용하여 Place 객체에서 Restaurant객체를 가져올 수 있다.
+Place.objects.first().restaurant
+# 없는 경우에는 Restaurant.DoesNotEixst 오류가 발생한다.
+```
+
+Restaurant에서 자동으로 생성된 OneToOneField는 다음과 같은 형태를 가진다.
+```python
+place_ptr = models.OneToOneField(
+  Place,
+  on_delete=models.CASCADE,
+  parent_link=True,
+)
+```
+`Restaurant`에서 자신의 `OneToOneField`에 `parent_link=True`를 사용하여 해당 필드를 재정의할 수 있다.
+
+### Meta and multi-table inheritance
+
+다중 테이블 상속 상황에서 자식 클래스가 부모의 Meta클래스에서 상속받는 것은 의미가 없다. 모든 메타 옵션은 이미 상위 클래스에 적용되었고 다시 적용하면 모순된 행동만 발생한다. (기본 클래스가 자체적으로 존재하지 않는 추상 기본 클래스의 경우와 대조적이다.)
+
+따라서 자식 모델은 부모 메타 클래스에 액세스할 수 없다. 그러나 자식이 부모로부터 동작을 상속하는 몇 가지 사항이 있다. 자식이 `ordering`특성이나 `get_latest_by`특성을 지정하지 않으면 해당 특성을 부모로부터 상속한다.
+
+부모가 ordering 되어있고 이를 해제하려면 명시적으로 사용을 중지할 수 있다.
+```python
+class ChildModel(ParentModel):
+  # ...
+  class Meta:
+    # Remove parent's ordering effect
+    ordering = []
+```
+
+#### Inheritance and reverse relations
+
+다중 테이블 상속은 암시적으로 `OneToOneField`를 사용하여 부모와 자식을 연결하기 때문에 위의 예와 같이 상위에서 하위로 이동할 수 있다. 그러나 이 경우 `related_query_name`의 값으로 `ForignKey`및`ManyToManyField`관계에 대한 기본 값을 사용한다. 이러한 관계 유형들을 부모 모델의 하위 클래스에 배치하는 경우 해당 필드 각각에 반드시 `related_query_name`속성을 지정해야한다. 이를 잊으면 Django는 유효성 검사 오류를 발생시킨다.
+
+```python
+class Supplier(Place):
+  customers = models.ManyToManyField(Place)
+```
+
+PK가 OneToOneField이기 때문에 `related_name`의 중복은 발생하지 않고 `related_query_name`중복 오류가 발생하게 된다.
+s
+```python
+Reverse query name for 'Supplier.customers' clashes with reverse query
+name for 'Supplier.place_ptr'.
+
+HINT: Add or change a related_name argument to the definition for
+'Supplier.customers' or 'Supplier.place_ptr'.
+```
+
+잦은 JOIN으로 성능을 저하시킬 수 있기 때문에 `MultiTalbe Inheritance`의 경우 잘 사용하지 않는다.
+
+### Proxy models
+
+다중 테이블 상속을 사용하면 모델의 각 하위 클래스에 대해 새 데이터베이스 테이블이 생성된다. 서브 클래스는 기본 클래스에 없는 추가 데이터 필드를 저장할 장소가 필요하기 때문에 사용한다. 그너라 때로는 모델의 파이썬에서의 동작만을 변경하고자 할 때가 있다. 예를 들어 기본 관리자를 변경하거나 새 메서드를 추가하는 경우가 이에 해당한다.
+
+프록시 모델 상속은 위와같은 경우를 위한 것이다. 원래 모델에 대한 proxy를 생성한다. 프록시 모델의 인스턴스 생성, 삭제 및 업데이트 할 수 있으며 원본(비 프록시) 모델을 사용하는 것처럼 모든 데이터가 저장된다.차이점은 원본을 변경하지 않고 프록시 기본 모델 순서(ordering) 또는 기본 관리자(default manager)와 같은 것을 변경할 수 있다는 것이다.
+
+프록시는 일반 모델처러 선언하되 Meta 클래스의 `proxy` 설정을 `True`로 설정하여 Django에 프록시 모델임을 알려야한다.
+
+```python
+class Person(models.Model):
+  first_name = models.CharField(max_length=30)
+  last_name = models.CharField(max_length=30)
+
+
+class MyPerson(Person):
+  class Meta:
+    proxy = True
+
+  def do_something(self):
+    #...
+    pass
+```
+
+Myperson 클래스는 상위 Person 클래스와 동일한 데이터베이스 테이블에서 작동한다. 특히 Person의 새로운 인스턴스는 MyPerson을 통해 액세스 할 수 있으며 그 반대의 경우도 가능하다.
+
+```python
+>>> p = Person.objects.create(first_name='foobar')
+>>> Myperson.objects.get(first_name="foobar")
+<MyPerson: foobar>
+```
+
+프록시 모델을 사용하여 모델에서 기본순서를 정의할수도 있다. Person 모델을 항상 ordering 하고싶지 않지만, 프록시를 사용할 때 last_name 속성으로 규칙적으로 ordering 하고자할 때는 다음과 같다.
+
+```python
+class OrderedPerson(Person):
+  class Meta:
+    ordering = ['last_name']
+    proxy = True
+```
+이렇게하면 일반적 Person 쿼리는 Ordering되지 않지만, OrderedPerson 쿼리는 last_name에 의해 ordering 된다.
+
+---
+
+```python
+
+class User(models.Model):
+  """
+    데이터베이스에 사용할 Model Class
+  """
+  name = models.CharField(max_length=40)
+  is_admin = models.BooleanField(default=False)
+
+  def __str__(self):
+    return self.name
+
+  class Meta:
+    db_table = 'Inheritance_Proxy_User1'
+
+
+class NormalUserManager(models.Manager):
+  """
+    Admin이 아닌 유저들만 사용하기 위한 매니저 객체
+  """
+  def normal_users(self):
+    # 상위 클래스에서 정의한 Queryset을 반환한다.
+    # 기본 Manager가 아닌 CustomManager를 사용할수도있으니 사용하는것이 권장된다.
+    return super().get_queryset().filter(is_admin=False)
+
+class AdminUserManager(models.Manager):
+  """
+    Admin만 사용하기 위한 매니저 객체
+  """
+  def admin_users(self):
+    return super().get_queryset().filter(is_admin=True)
+
+
+class NormalUser(UtilMixin, User):
+  """
+    User 모델에서 Admin이 아닌 유저만 사용하기위한 Proxy 모델
+  """
+  items = NormalUserManager()
+
+  class Meta:
+    proxy = True
+
+
+class Admin(UtilMixin, User, AdminExtraManager):
+  """
+    User 모델에서 Admin만 사용하기 위한 Proxy 모델
+  """
+
+  class Meta:
+    proxy = True
+
+  def delete_user(self, user):
+    user.delete()
+
+class AdminExtraManager(models.Model):
+  items = AdminUserManager()
+
+  class Meta:
+    abstract=True
+
+class UtilMixin(models.Model):
+  """
+    필드가 없고 메서드만 존재하는 Mixin 클래스
+    Proxy는 여러개의 Mixin 클래스를 상속받을 수 있다.
+  """
+  class Meta:
+    abstract = True
+
+  def show_items(cls):
+    # 여기서 cls는 Admin이나 NormalUser 둘중 하나가 된다.
+    # _default_manager는 objects와 같다.
+    print(f'- Model ({cls.__name__}) items -')
+    for item in cls._default_manager.all():
+      print(item)
+
+  def find_user(self, name):
+    return User.objects.filter(name__contains=name)
+```
+
+해당 모델의 모델에서 선언된 첫번째 Manager가 \_default\_manager가 된다.
+다중상속에서의 규칙중, 같은 메서드나, 같은 속성이 있을 경우 상속하고있는 클래스의 왼쪽부터 찾게된다.
+
+```python
+>>> NormalUser.objects
+        <User1Manager>
+>>> NormalUser.items
+        <NormalUserManager>
+>>> NormalUser._default_manager
+        <NormalUserManager>
+
+
+>>> Admin.objects
+        <User1Manager>
+>>> Admin.items
+        <AdminUserManager>
+# 이러한 결과가 나오는 이유는 class(UtilMixin, User1, AdminExtraManager)
+# 라는 순서로 상속받고 있고, 매니저를 처음 선언한 곳은 User1 클래스이기때문에
+# 해당 매니저를 사용하게된다.
+>>> Admin._default_manager
+        <User1Manager>
+```
+
+---
+
+#### QuerySets still return the model that was requested
+
+Django에서는 `Person`객체를 쿼리할때마다 `MyPerson`객체를 반환할 방법이 없다. `Person` 객체에 대한 queryset은 해당 유형의 객체를 반환한다. 즉, 그렇게 설계했고 사용하라는 뜻이다. 프록시 객체의 요점은 `Person`을 사용하는 코드를 사용하지 않고, 사용자 코드를 포함시킨 확장기능을 사용할 수 있다는 것이다.
+
+#### Base class restrictions
+
+프록시 모델은 정확히 하나의 비 추상 모델 클래스를 상속해야한다. 프록시 모델은 다른 데이터베이스 테이블의 행 사이에 연결을 제공하지 않으므로 여러개의 비 추상 모델을 상속받을 수 없다. 모델의 필드가 정의되지 않은 추상 모델 클래스(메서드만 있는 추상 모델 클래스, 이런것을 Mixin이라고 부른다.)를 여러개 상속 받을 수 있다.
+프록시 모델은 공통의 비 추상 부모 클래스를 공유하는 임의의 수의 프록시 모델을 상속받을 수 있다.
+
+```python
+class Person: # 비 추상 부모 클래스
+  pass
+
+class NormalUser(Person):
+  class Meta:
+    proxy = True
+
+class Admin(Person):
+  class Meta:
+      proxy = True
+
+class Staff(Person):
+  class Meta:
+    proxy = True
+
+# 가능하다! 하나의 프록시 모델은 실제로 데이터베이스에서 사용하는 공통의 비 추상 부모 클래스(Person)를 가지는 여러개의 프록시 모델을 상속할 수 있다.
+class User(NormalUser, Admin, Staff):
+  class Meta:
+    proxy = True
+```
+
+#### Proxy model managers
+
+프록시 모델에 모델 관리자를 지정하지 않으면 모델 부모로부터 관리자를 상속받는다. 프록시 모델에서 관리자를 정의하면 그것이 기본값이 되지만, 부모 클래스에 정의 된 관리자는 계속 사용할 수 있다.
+
+```python
+from django.db import models
+
+class New Manager(models.Manager):
+  # ...
+  pass
+
+class MyPerson(Person):
+  objects = NewManager()
+
+  class Meta:
+    proxy = True
+```
+
+#### Differences between proxy inheritance and unmanaged models
+
+프록시 모델 상속은 모델의 Meta클래스에서 관리되는 특성을 사용하여 관리되지 않는 모델(unmanaged model)을 만드는것과 매우 비슷하다.
+
+(?)

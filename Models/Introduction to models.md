@@ -97,9 +97,9 @@ class Album(models.Model):
 **blank**
 `True`일 경우, 필드에서 빈 값을 허용한다. 기본값은 `False`
 
-**null**과 **blank**는 다르다.
-**null**은 데이터베이스에 NULL을 허용하는 것이고, **blank**는 사용자 입력 폼에서 빈 값을 허용하지만, 데이터베이스에서는 NULL을 허용하지 않는다.
-**blank**는 `form validation`으로 검사하여 폼에서 공백인가를 검증하고, **blank=False**인경우 폼에서 해당 필드는 반드시 채워져야한다.
+**null** 과 **blank** 는 다르다.
+**null** 은 데이터베이스에 NULL을 허용하는 것이고, **blank** 는 사용자 입력 폼에서 빈 값을 허용하지만, 데이터베이스에서는 NULL을 허용하지 않는다.
+**blank** 는 `form validation`으로 검사하여 폼에서 공백인가를 검증하고, **blank=False** 인경우 폼에서 해당 필드는 반드시 채워져야한다.
 
 **choices**
 반복 가능한(리스트 또는 튜플) 튜플의 묶음을 선택 목록으로 사용한다. 이 인수가 주어지면, 기본 폼 위젯은 SELECT BOX로 대체되어 선택 값을 제한한다.
@@ -584,12 +584,12 @@ one-to-one 관계를 정의하려면, `OneToOneField`를 이용하면 된다. �
 
 예를 들어, 가게(Places)정보가 담긴 데이터베이스를 구축한다고 한다. 아마 데이터베이스에 주소, 전화번호 등의 정보가 들어간다. 그런데 맛집 데이터베이스를 추가적으로 구축할 경우, 새로 Restaurant모델을 만들 수도 있지만, 반복을 피하기 위해 Restaurant모델 Place모델만 `OneToOneField`로 선언한다.
 
-`ForeignKeyField`와 마찬가지로 자기자신이나 아직 선언되지 않은 모델에 대해서도 관계를 가질 수 있다.
+`ForeignKeyField`와 마찬가지로 `recursive`나 아직 선언되지 않은 모델에 대해서도 관계를 가질 수 있다.
 
 `OneToOneField`는 `parent_link`라는 옵션을 제공한다.
 이 옵션은 구체적인 모델에서 상속한 모델에서 사용되는 경우 이 필드는 서브 클래싱하여 일반적으로 암시적으로 생성되는 OneToOneField가 아니라 부모 클래스에 대한 링크로 다시 사용해야 함을 나타낸다.
 
-`OneToOneField`는 자동으로 모델의 기본키가 되었지만, 지금은 아니다.(`primary_key` 인수를 통해 직접 지정해줄수는 있다.) 그러므로 단일 모델의 `OneToOneField`에 여러 필드를 가질 수 있다.
+`OneToOneField`는 자동으로 모델의 기본키가 되었지만, 지금은 아니다.(`primary_key` 인수를 통해 직접 지정해줄수는 있다.) 그러므로 단일 모델에 여러 `OneToOneField` 필드를 가질 수 있다.
 
 ```python
 class Place(models.Model)
@@ -830,7 +830,7 @@ Django는 추상 기본 클래스의 `Meta`클래스를 조정한다. `Meta`속�
 
 일부 속성은 추상 기본 클래스의 `Meta`클래스에 포함하는 것이 옳지 않다.  예를들어 `db_talbe`의 경우 모든 자식 클래스(자신의 메타를 지정하지 않은 클래스)가 동일한 데이터베이스 테이블을 사용한다는 것을 의미하기때문에, 이는 원하지 않는 동작을 초래한다.
 
-### Be careful with related_name and related_query_name으로
+### Be careful with related_name and related_query_name
 `ForignKey` 또는 `ManyToManyField`에서 `related_name`과 `related_query_name`을 사용하는 경우 고유한 reverse name과 query name을 항상 지정해야한다. 이 필드들(ManyToManyField, ForignKey)를 가진 추상 기본 클래스를 상속받은 경우, 매번 해당 속성(related_name 또는 related_query_name)에 대해 정확히 동일한 값이 사용되므로 일반적으로 문제가 발생한다.
 
 이 문제를 해결하기위해 값의 일부에 `%(app_label)s` 또는 `%(class)s`를 지원한다.

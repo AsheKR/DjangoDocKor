@@ -249,3 +249,331 @@ Negative indexing(`Entry.objects.all([-1])`)은 지원하지 않는다.
 ```python
 >>> Entry.objects.order_by('headline')[0]
 ```
+
+이는 대략 다음과 같다.
+
+```python
+>>> Entry.objects.order_by('headline')[0:1].get()
+```
+
+그러나 이들 중 첫 항목은 `IndexError`를 발생시키고 두번째 항목은 지정된 조건과 일치하는 개체가 없는 경우 `DoesNotExist`를 발생시킨다. 자세한 애용은 `get()`항목을 참조하라.
+
+### Field lookups
+
+필드 조회는 `SQL WHERE`절의 항목을 지정하는 방법이다. `QuerySet` 메서드 `filter()`, `exclude()`, `get()`에 대한 키워드 인수로 지정된다.
+
+기본 검색 키워드 인수는 `field__lookuptype=value`형식을 취한다.
+
+```python
+>>> Entry.objects.filter(pub_date__lte='2006-01-01')
+```
+
+이는 대략적으로 다음 SQL로 변환한다.
+
+```sql
+SELECT * FROM blog_entry WHERE pub_date <= '2006-01-01';
+```
+
+lookup에 지정된 필드는 모델 필드의 이름이여야한다. 그러나 한가지 예외가 있다. `ForeignKey`의 경우 `_id`접미사로 필드 이름을 지정해야한다. 이 경우, value 매개변수에는 외부 모델의 기본 키의 값이 포함되어야한다.
+
+
+```python
+>>> Entry.objects.filter(blog_id=4)
+```
+
+잘못된 키워드 인수를 전달하면 lookup 함수가 `TypeError`를 발생시킨다.
+
+데이터베이스 API는 약 20개의 조회 유형을 지원한다. `field lookup reference`에서 완전한 참조를 찾을 수 있다. 사용할 수 있는 것을 제공하기위해 다음과 같은 일반적이 몇가지 조회가 사용된다.
+
+
+`exact`
+```python
+>>> Entry.objects.get(headline__exact='Cat bites dog')
+```
+이는 다음의 SQL문을 생성한다.
+```sql
+SELECT ... WHERE head_line='Cat bites dog'
+```
+
+조회 유형을 제공하지 않으면(즉 키워드 인수에 밑줄이 두개 포함되지 않은 경우) 그 조회 타입은 `exact`로 가정한다.
+
+```python
+>>> Blog.objects.get(id__exact=14)
+>>> Blog.objects.get(id=14)
+```
+
+이는 정확한 조회가 일반적인 경우이기 때문에 편의상 사용한다.
+
+`iexact`
+대소문자 구분없이 **일치** 하는것을 찾는다.
+```python
+>>> Blog.objects.get(name__iexcact="beatles blog")
+```
+
+위는 `Beatles Blog`, `beatles blog`, `BeAtlES blOG`와 일치한다.
+
+`contains`
+대소문자를 구별하고, **포함** 된 내용을 찾는다.
+
+```python
+>>> Entry.objects.get(headline__contains='Lennon')
+```
+다음과 같은 SQL문을 생성한다.
+
+```sql
+SELECT ... WHERE headline LIKE '%Lennon%';
+```
+
+이는 `Today Lennon honred`는 일치하지만 `today lennon honored`는 일치하지 않는다.
+
+대소문자를 구분하지 않는 `icontains` 버전도 있다.
+
+`startswith, endswith`
+~으로 시작하는 것, ~으로 끝나는 것을 검색한다. 대소문자를 구분하지 않는 `istartswith`, `iendswith`도 존재한다.
+
+더 많은 정보는 `field lookup reference`에서!
+
+### Lookups that span relationships
+
+Django는 백그라운드에서 자동으로  SQL JOIN을 처리하면서 조회시 관계를 따르는 가장 강력하고 직관적인 방법을 제공한다. 관계를 확장하려면 원하는 필드에 도달 할 때까지 모델에서 관련 필드의 필드 이름을 이중 밑줄로 구분하여 사용한다.
+
+이는 `Blog`이름이 `Beatles Blog`인 모든 `Entry`객체를 검색한다.
+
+```python
+>>> Entry.objects.filter(blog__name="Beatles Blog")
+```
+
+이는 원하는많큼 깊을 수 있다. 거꾸로도 동작한다. "역"관계를 나타내기위해 모델의 소문자 이름을 사용한다.
+
+이는 `Entry`에서 `headline`이 `Lennon`을 포함하는 `Blog`객체를 검색한다.
+
+```python
+>>> Blog.objects.filter(entry__headline__contains='Lennon')
+```
+
+여러 관계에 걸쳐 필터링을 수행하고 중간 모델 중 하나에 필터 조건을 충족시키는 값이 없는 경 Django는 비어있는(모든 값이 NULL인)것처럼 취급한다. 이는 오류를 제기하지 않는다는 말이된다.
+
+```python
+>>> Blog.objects.filter(entry__authors__name='Lennon')
+```
+
+`Entry`과 관련된 `author`가 없는 경우 누락된 작성자로인해 `name`이 첨부되지 않은 것처럼 처리된다. 이는 올바르게 예상한대로 동작한것이고. 다음과 같은 상황에서 혼란스러울 수 있다.
+
+```python
+>>> Blog.objects.filter(entry__authors__name__isnull=True)
+```
+
+위는 작성자에 빈 이름이 있는 블로그 객체와 빈 작성자가 있는 블로그개체를 반환한다. 후자의 객체를 원하지 않는다면 다음과 같이 작성한다.
+
+```python
+Blog.objects.filter(entry__authors__isnull=False, entry__authors__name__isnull=True)
+```
+
+### Spanning multi-valued relationships
+
+`ManyToManyField` 또는 역방향 `ForeignKey`를 기반으로 개체를 필터링할 때 두가지 필터 방식이 존재한다.
+
+`
+Blog1, Blog2
+
+Entry1
+      blog=Blog1
+      headline='Lennon'
+      pub_date=datetime(2008, 3, 3),
+
+Entry2
+      blog=Blog2
+      headline='lhy'
+      pub_date=datetime(2008, 3, 3),
+
+Entry3
+      blog=Blog2
+      headline='Lennon'
+      pub_date=datetime(2018, 10, 18),
+`
+
+위의 내용을 바탕으로 아래를 설명한다.
+
+```python
+# 여러 관계 값을 필터하는 경우 다른 쿼리문을 반환한다.
+>>> Blog.objects.filter(entry__headline='Lennon', entry__pub_date__year=2008)
+# Blog중에서
+#   headline이 'Lennon'이면서 'pub_date'의 'year'가 2008인 Entry가 포함된 Blog를 반환
+# result = <QuerySet [<Blog: Blog1>]>
+>>> Blog.objects.filter(entry__headline='Lennon').filter(entry__pub_date__year=2008)
+# Blog중에서
+#   headline이 'Lennon'인 Entry가 포함된 Blog 중에서
+#     pub_date의 year가 2008인 경우의 Entry를 포함한 Blog를 반환
+# result = <QuerySet [<Blog: Blog1>, <Blog: Blog2>]>
+
+# 아래 두개는 같은 쿼리문을 반환한다.
+>>> Entry.objects.filter(headline='Lennon').filter(pub_date__year=2008)
+>>> Entry.objects.filter(headline='Lennon', pub_date__year=2008)
+```
+
+> 여러값을 주어진 Exclude의 경우 Filter와는 다르게 동작한다.
+> ```python
+>   Blog.objects.exclude(
+>     entry__headline__contains='Lennon',
+>     entry__pub_date__year=2008
+>   )
+> ```
+> 예상한 결과는 Blog2 객체만 반환해야하는데 실제로는 Blog1, Blog2 모두를 반환한다.
+> 여러값을 제한하는 경우 다믕과 같이 작성해야한다.
+> ```python
+>   Blog.objects.exclude(
+>     entry__in=Entry.objects.filter(
+>        headline__contains='Lennon',
+>        pub_date__year=2008,
+>     )
+>   )
+> ```
+
+### Filters can reference fileds on the model
+
+지금까지는 모델 필드의 값과 상수를 비교하는 필터를 만들었다. 그러나 모델 필드의 값을 동일한 모델의 다른 필드와 비교하려면 어떻게 해야할까?
+
+Django는 이러한 비교를 허용하는 `F 표현식`을 제공한다. `F()`의 인스턴스는 쿼리 내의 모델 필드에 대한 참조로 사용된다. 그런 다음 이 참조를 쿼리 필터에 사용하여 동일한 모델 인스턴스의 두개의 다른 필드 값을 비교할 수 있다.
+
+이 예는 `pingbacks`보다 많은 `comments`가 있는 모든 블로그를 찾기위해 `pingbacks`를 참조하는 `F()`객체를 생성하고 쿼리에서 해당 `F()`객체를 사용한다.
+
+```python
+>>> from django.db.models import F
+>>> Entry.objects.filter(n_comments__gt=F('n_pingbacks'))
+```
+
+Django는 상수 및 다른 `F()`객체와 함께 `F()`객체를 사용하여 산술연산을 지원한다. `pingbacks`보다 2배많은 `comments`가 있는 블로그 항목을 찾기위해 다음같이 작성한다.
+```python
+>>> Entry.objects.filter(n_comments__gt=F('n_pingbacks') * 2)
+```
+
+Entry의 `rating`이 `pingbacks`와 `comments`의 합보다 작은 Entry를 찾기위해 다음과 같이 작성한다.
+
+```python
+>>> Entry.objects.filter(rating__lt=F(n_pingbacks) + F(n_comments))
+```
+
+이중 밑줄 표기법을 사용하여 `F()`객체의 관계를 확장할 수 있다. 이중 밑줄이 있는 `F()`객체는 관련 객체에 액세스 하는데 필요한 조인을 도입한다. 예를들어 작성자의 이름과 블로그 이름이 동일한 Entry을 검색하기위해 다음과 같이 작성한다.
+
+```python
+>>> Entry.objects.filter(blog__name=F('authors__name'))
+```
+
+날짜/시간 필드의 경우 `timedelta` 객체를 더하거나 뺄 수 있다. 다음은 게시된 후 3일 이상 수정된 모든 Entry를 반환한다.
+
+```python
+>>> from datetime import timedelta
+>>> Entry.objects.filter(mod_date__gt=F('pub_date') + timedelta(days=3))
+```
+
+F()연산은 bit연산도 지원한다.
+
+### The pk lookup shortcut
+
+편의상 Django는 `primary key`를 나타내는 pk lookup shortcut을 제공한다.
+
+PK에 접근하는 아래 세 문장은 동일한 결과를 반환한다.
+```python
+>>> Blog.objects.get(id__exact=14) # 정확한 형태
+>>> Blog.objects.get(id=14) # __exact 생략가능
+>>> Blog.objects.get(pk=14) # pk는 id__exact의 함축표현
+```
+
+pk는 `__exact`에만 제한되는것이아니라 모든 검색어와 결합하여 사용할 수 있다.
+
+```python
+# 1,4,7번 PK의 블로그를 필터
+>>> Blog.objects.filter(pk__in=[1,4,7])
+
+# 14보다는 PK 블로그를 필터
+>>> Blog.objects.filter(pk__gt=14)
+```
+
+
+pk 조회는 조인에서도 작동한다.
+
+```python
+>>> Entry.objects.filter(blog__id__exact=3)
+>>> Entry.objects.filter(blog__id=3)
+>>> Entry.objects.filter(blog__pk=3)
+```
+
+### Escaping percent signs and underscores in LIKE statements
+
+LIKE문(exact, contains, startswith, endswith)와 같은 필드 조회는 LIKE문에 사용된 특수문자(% 및 \_)를 자동으로 이스케이프처리한다. LIKE문에서 %는 여러문자 와일드카드를 나타내고 \_는 단일 문자 와일드카드를 나타낸다.
+
+```python
+>>> Entry.objects.filter(headline__contain='%')
+```
+
+Django에서 다음과 같이 처리한다.
+
+```sql
+SELECT ... WHERE headline LIKE '%\%%';
+```
+
+### Caching and QuerySets
+
+각 `QuerySet`에는 데이터베이스 액세스를 최소화하기위한 캐시가 포함되어있다.어떻게 동작하는지 이해하면 가장 효율적인 코드를 작성할 수 있다.
+
+새로 생성된 `QuerySet`에서는 캐시가 비어있다. 처음으로 `Querset`이 `evaluated`되고, 즉 데이터베이스 쿼리가 발생하면 Django는 쿼리 결과를 `QuerySet`의 캐시에 저장하고 명시적으로 해당 결과를 반환한다. `Queryset`의 후속 `evaluated`는 캐시 결과를 다시 재사용한다.
+
+```python
+# 현재 QuerySet 캐시는 비워져 있다. 즉, 데이터베이스에 요청을하지 않은 상태
+>>> q = Blog.objects.all()
+# 아래 표현식을 사용하면 evaluated, 평가되었다고 한다. 데이터베이스에 요청을 하여 결과값을 가져온다.
+>>> q
+# result : <QuerySet [<Blog: ...
+# 한번더 사용했을 때 위의 캐시된 값을 사용한다.
+>>> q
+# result : <QuerySet [<Blog: ...
+# 캐시된 값을 사용하면 좋은점이 데이터베이스에 요청을 최소하할 수 있지미나
+# 데이터베이스 값이 업데이트되어도 캐시된 값을 변화하지 않는다.
+```
+
+아래는 두번의 데이터베이스 요청을 발생시킨다.
+
+```python
+>>> print([e.headline for e in Entry.objects.all()])
+>>> print([e.pub_date for e in Entry.objects.all()])
+```
+
+이는 두번의 요청이라는 낭비를 발생하고, 두 요청 사이 새 데이터나 삭제된 데이터가 존재할 수 있기때문에 같은 데이터베이스 데이터를 사용하지 않을 수 있다.
+
+이 같은 문제를 피하기위해 다음과 같이 작성해야한다.
+
+```python
+>>> queryset = Entry.objects.all()
+>>> print([p.headline for p in queryset]) # Evaluate the query set.
+>>> print([p.pub_date for p in queryset]) # Re-use the cache from the evaluation.
+```
+
+### when QuerySets are not cached
+
+Queryset은 항상 결과를 캐시하지 않는다. 쿼리셋의 일부만을 평가할 때 캐시가 검사되지만 채워지지 않은경우 후속 쿼리에서 반환되는 항목은 캐시되지 않는다. 이는 배열 슬라이스나 인덱스를 사용하는 쿼리 세트를 제한해도 캐시가 채워지지 않음을 의미한다.
+
+예를들어 queryset 오브젝트에서 반복적으로 특정 인덱스를 얻으면 매번 데이터베이스를 조회하게된다.
+
+```python
+>>> queryset = Entry.objects.all()
+>>> print(queryset[5]) # Queries the database
+>>> print(queryset[5]) # Queries the database again
+```
+
+그러나 전체 쿼리셋이 이미 평가된 경우 캐시가 사용된다.
+
+```python
+>>> queryset = Entry.objects.all()
+>>> [entry for entry in queryset] # Queries the database
+>>> print(queryset[5]) # Uses cache
+>>> print(queryset[5]) # Uses cache
+```
+
+쿼리셋 전체를 평가하기 위해 다음을 사용할 수 있다.
+
+```python
+>>> [entry for entry in queryset]
+>>> bool(queryset)
+>>> entry in queryset
+>>> list(queryset)
+```
